@@ -1,0 +1,131 @@
+// EasyBill — public.users mirrors Supabase Auth; id = auth.users.id
+// Database URL for CLI (migrate, etc.) lives in prisma.config.ts (Prisma ORM 7+).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Plan {
+  free
+  pro
+}
+
+enum InvoiceStatus {
+  draft
+  pending
+  partial
+  paid
+  overdue
+}
+
+enum PaymentMethod {
+  cash
+  upi
+  bank_transfer
+  card
+  cheque
+  other
+}
+
+model User {
+  id             String   @id @db.Uuid
+  name           String
+  email          String   @unique
+  companyName    String   @map("company_name")
+  companyLogoUrl String?  @map("company_logo_url")
+  gstNumber      String?  @map("gst_number")
+  address        String
+  phone          String?
+  plan           Plan     @default(free)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  customers Customer[]
+  invoices  Invoice[]
+
+  @@map("users")
+}
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  gstNumber String?  @map("gst_number")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([userId])
+  @@map("customers")
+}
+
+model Invoice {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  customerId     String        @map("customer_id") @db.Uuid
+  invoiceNumber  String        @map("invoice_number")
+  status         InvoiceStatus @default(draft)
+  subtotal       Decimal       @db.Decimal(10, 2)
+  discountAmount Decimal       @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  taxAmount      Decimal       @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  totalAmount    Decimal       @map("total_amount") @db.Decimal(10, 2)
+  amountPaid     Decimal       @default(0) @map("amount_paid") @db.Decimal(10, 2)
+  currency       String        @default("INR")
+  issueDate      DateTime      @map("issue_date") @db.Date
+  dueDate        DateTime      @map("due_date") @db.Date
+  notes          String?
+  customerNotes  String?       @map("customer_notes")
+  pdfUrl         String?       @map("pdf_url")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@unique([userId, invoiceNumber])
+  @@index([userId])
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  invoiceId   String  @map("invoice_id") @db.Uuid
+  productName String  @map("product_name")
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(10, 2)
+  taxRate     Decimal @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount   Decimal @map("tax_amount") @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+  sortOrder   Int     @map("sort_order")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          String        @id @default(uuid()) @db.Uuid
+  invoiceId   String        @map("invoice_id") @db.Uuid
+  amount      Decimal       @db.Decimal(10, 2)
+  paymentDate DateTime      @map("payment_date") @db.Date
+  method      PaymentMethod
+  reference   String?
+  notes       String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("payments")
+}
