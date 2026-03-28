@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
-import { prisma } from "@/lib/prisma";
+import { loadInvoicePdfPayload } from "@/lib/invoice-pdf/load-payload";
+import { renderInvoicePdfBuffer } from "@/lib/invoice-pdf/render-pdf";
+import { uploadInvoicePdfAndSaveUrl } from "@/lib/invoice-pdf/storage-upload";
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Placeholder until Puppeteer / @react-pdf PDF export is wired. */
+function safeFilename(s: string) {
+  return s.replace(/[^\w.-]+/g, "_") || "invoice";
+}
+
 export async function GET(_req: Request, { params }: Params) {
   const user = await getSessionUser();
   if (!user) {
@@ -15,22 +20,26 @@ export async function GET(_req: Request, { params }: Params) {
   await ensureAppUser(user);
 
   const { id } = await params;
-
-  const invoice = await prisma.invoice.findFirst({
-    where: { id, userId: user.id },
-    select: { id: true },
-  });
-
-  if (!invoice) {
+  const data = await loadInvoicePdfPayload(id, user.id);
+  if (!data) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json(
-    {
-      message:
-        "PDF export is not implemented yet. Use invoice detail for preview, or add Puppeteer / React-PDF.",
-      invoiceId: id,
+  const buffer = await renderInvoicePdfBuffer(data);
+
+  try {
+    await uploadInvoicePdfAndSaveUrl(user.id, id, buffer);
+  } catch (e) {
+    console.error("PDF storage upload skipped or failed:", e);
+  }
+
+  const name = safeFilename(data.invoice.invoiceNumber);
+  return new NextResponse(new Uint8Array(buffer), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${name}.pdf"`,
+      "Cache-Control": "private, no-store",
     },
-    { status: 501 },
-  );
+  });
 }

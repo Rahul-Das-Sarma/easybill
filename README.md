@@ -9,6 +9,7 @@ Simple invoice tooling for Indian small businesses: GST line items, customers, d
 - **Auth & DB:** [Supabase](https://supabase.com/) Auth; PostgreSQL via **Prisma ORM 7** (`@prisma/adapter-pg`)
 - **Forms & validation:** React Hook Form, Zod
 - **Server state:** TanStack Query
+- **PDF:** [@react-pdf/renderer](https://react-pdf.org/) (in-browser preview + server fallback), [Puppeteer](https://pptr.dev/) + [@sparticuz/chromium](https://github.com/Sparticuz/chromium) on Vercel for HTML→PDF; [Resend](https://resend.com/) for email with attachment
 
 ## Prerequisites
 
@@ -25,8 +26,24 @@ Copy `.env.example` to `.env.local` and fill in values.
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL (Settings → API) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | Publishable (public) key—safe for the browser; RLS still applies |
 | `DATABASE_URL` | Postgres connection string for Prisma (Settings → Database) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only: upload invoice PDFs to Storage and mint signed URLs (Settings → API → service_role) |
+| `SUPABASE_INVOICE_PDF_BUCKET` | Private Storage bucket name (default `invoice-pdfs`) |
+| `RESEND_API_KEY` | Send invoice emails with PDF attached |
+| `RESEND_FROM_EMAIL` | Optional verified sender (default uses Resend onboarding address) |
 
 Optional: `NEXT_PUBLIC_SUPABASE_ANON_KEY` is still read as a fallback if the publishable key is not set.
+
+### Supabase Storage
+
+Create a **private** bucket (e.g. `invoice-pdfs`). The app uploads PDFs to `{userId}/{invoiceId}.pdf` and stores `bucket/path` in `invoices.pdf_url`. Without `SUPABASE_SERVICE_ROLE_KEY`, PDFs still **download** from the API but are not uploaded.
+
+## PDFs, WhatsApp, and email
+
+- **Preview:** Invoice detail → **Preview PDF** opens a modal with `@react-pdf/renderer` (`GET /api/invoices/[id]/pdf-data`).
+- **Download / server PDF:** `GET /api/invoices/[id]/pdf` builds HTML, prints with **Puppeteer** (Chromium from `@sparticuz/chromium` on Vercel, full `puppeteer` locally), and falls back to **React-PDF** if Puppeteer fails. Response is `application/pdf` and triggers upload when the service role is configured.
+- **Free vs Pro:** PDF footer shows **“Powered by EasyBill”** for `users.plan = free`. **Pro** removes that line and shows the business logo in the footer only (logo in the header on free; pro uses footer branding per product spec).
+- **WhatsApp:** Uses `GET /api/invoices/[id]/signed-pdf-url` (7-day signed URL by default). If no file exists yet and the service role is set, the handler generates and uploads the PDF first.
+- **Email:** `POST /api/invoices/[id]/email` sends via Resend with the PDF attached (recipient = customer email or `{ "to": "..." }`).
 
 ## Database
 
@@ -63,12 +80,12 @@ Ensure `public.users.id` matches Supabase Auth user IDs. The app **upserts** a `
 | `/dashboard` | Overview (placeholders for charts / recent activity) |
 | `/invoices` | Paginated list, search, filters, quick actions |
 | `/invoices/create` | Create draft invoice (line items, GST, customer search or inline create) |
-| `/invoices/[id]` | Invoice detail (placeholder sections) |
+| `/invoices/[id]` | Invoice detail, line items, payments, PDF preview / download / WhatsApp / email |
 | `/invoices/[id]/edit` | Edit flow (placeholder) |
 | `/customers`, `/customers/[id]` | Customers (placeholder / list shell) |
 | `/settings` | Business profile (placeholder) |
 
-API routes under `src/app/api/` back invoices, customers, mark-paid, and a stub PDF endpoint.
+API routes include invoices CRUD helpers, `pdf`, `pdf-data`, `signed-pdf-url`, `email`, customers, and mark-paid.
 
 ## Deploy (e.g. Vercel)
 
