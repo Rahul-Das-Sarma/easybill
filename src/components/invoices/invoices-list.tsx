@@ -49,12 +49,6 @@ const inr = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
-async function fetchPdfMessage(id: string) {
-  const res = await fetch(`/api/invoices/${id}/pdf`);
-  const body = (await res.json().catch(() => ({}))) as { message?: string };
-  return { ok: res.ok, message: body.message ?? res.statusText };
-}
-
 export function InvoicesList() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>("all");
@@ -277,20 +271,18 @@ export function InvoicesList() {
                         >
                           <Eye className="size-4" aria-hidden />
                         </Link>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-muted-foreground"
+                        <a
+                          href={`/api/invoices/${inv.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(
+                            buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                            "text-muted-foreground",
+                          )}
                           title="Download PDF"
-                          onClick={() =>
-                            void fetchPdfMessage(inv.id).then(({ message }) => {
-                              window.alert(message);
-                            })
-                          }
                         >
                           <Download className="size-4" aria-hidden />
-                        </Button>
+                        </a>
                         {inv.status !== "paid" ? (
                           <Button
                             type="button"
