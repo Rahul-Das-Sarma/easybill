@@ -28,6 +28,10 @@ export async function PATCH(_req: Request, { params }: Params) {
   const paid = new Prisma.Decimal(invoice.amountPaid.toString());
   const remaining = total.minus(paid);
 
+  if (invoice.status === "paid" && paid.greaterThanOrEqualTo(total)) {
+    return NextResponse.json({ ok: true });
+  }
+
   await prisma.$transaction(async (tx) => {
     if (remaining.greaterThan(0)) {
       await tx.payment.create({
@@ -36,7 +40,7 @@ export async function PATCH(_req: Request, { params }: Params) {
           amount: remaining,
           paymentDate: new Date(),
           method: "upi",
-          notes: "Marked as paid",
+          notes: "Marked as fully paid",
         },
       });
     }

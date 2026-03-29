@@ -23,6 +23,7 @@ type InvoiceRow = {
   id: string;
   invoiceNumber: string;
   status: string;
+  displayStatus?: string;
   subtotal: string;
   discountAmount: string;
   taxAmount: string;
@@ -220,7 +221,9 @@ export function InvoicesList() {
                   </td>
                 </tr>
               ) : (
-                data.items.map((inv) => (
+                data.items.map((inv) => {
+                  const badgeStatus = inv.displayStatus ?? inv.status;
+                  return (
                   <tr key={inv.id} className="border-b border-border/80">
                     <td className="px-3 py-2">
                       <input
@@ -241,13 +244,13 @@ export function InvoicesList() {
                       <span
                         className={cn(
                           "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                          inv.status === "paid" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-                          inv.status === "overdue" && "bg-destructive/15 text-destructive",
-                          ["draft", "pending", "partial"].includes(inv.status) &&
+                          badgeStatus === "paid" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                          badgeStatus === "overdue" && "bg-destructive/15 text-destructive",
+                          ["draft", "pending", "partial"].includes(badgeStatus) &&
                             "bg-amber-500/15 text-amber-800 dark:text-amber-300",
                         )}
                       >
-                        {inv.status}
+                        {badgeStatus.replaceAll("_", " ")}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
@@ -283,7 +286,7 @@ export function InvoicesList() {
                         >
                           <Download className="size-4" aria-hidden />
                         </a>
-                        {inv.status !== "paid" ? (
+                        {badgeStatus !== "paid" ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -297,7 +300,8 @@ export function InvoicesList() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

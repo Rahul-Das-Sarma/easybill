@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { computeInvoiceLines } from "@/lib/invoice-math";
+import {
+  effectiveInvoiceStatus,
+  utcStartOfToday,
+} from "@/lib/invoice-payment-status";
 import { getNextInvoiceNumber } from "@/lib/next-invoice-number";
 import { prisma } from "@/lib/prisma";
 
@@ -73,14 +77,25 @@ export async function GET(req: Request) {
   const q = (searchParams.get("q") ?? "").trim();
   const tab = searchParams.get("tab") ?? "all";
 
-  const statusWhere: Prisma.InvoiceWhereInput = {};
-  if (tab === "paid") {
-    statusWhere.status = "paid";
-  } else if (tab === "pending") {
-    statusWhere.status = { in: ["draft", "pending", "partial"] };
-  } else if (tab === "overdue") {
-    statusWhere.status = "overdue";
-  }
+  const startToday = utcStartOfToday();
+  const statusWhere: Prisma.InvoiceWhereInput =
+    tab === "paid"
+      ? { status: "paid" }
+      : tab === "pending"
+        ? {
+            AND: [
+              { status: { not: "paid" } },
+              { dueDate: { gte: startToday } },
+            ],
+          }
+        : tab === "overdue"
+          ? {
+              AND: [
+                { status: { not: "paid" } },
+                { dueDate: { lt: startToday } },
+              ],
+            }
+          : {};
 
   const searchWhere: Prisma.InvoiceWhereInput =
     q.length === 0
@@ -139,6 +154,11 @@ export async function GET(req: Request) {
     taxAmount: r.taxAmount.toString(),
     totalAmount: r.totalAmount.toString(),
     amountPaid: r.amountPaid.toString(),
+    displayStatus: effectiveInvoiceStatus(
+      r.dueDate,
+      r.status,
+      r.amountPaid,
+    ),
     issueDate: r.issueDate.toISOString().slice(0, 10),
     dueDate: r.dueDate.toISOString().slice(0, 10),
     createdAt: r.createdAt.toISOString(),
