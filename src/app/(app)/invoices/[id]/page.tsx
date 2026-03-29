@@ -2,9 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { InvoiceDetailActions } from "@/components/invoices/invoice-detail-actions";
+import { InvoicePaymentsPanel } from "@/components/invoices/invoice-payments-panel";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import {
+  effectiveInvoiceStatus,
+  isInvoiceOverdue,
+} from "@/lib/invoice-payment-status";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +47,21 @@ export default async function InvoiceDetailPage({ params }: Props) {
   }
 
   const c = invoice.customer;
+  const displayStatus = effectiveInvoiceStatus(
+    invoice.dueDate,
+    invoice.status,
+    invoice.amountPaid,
+  );
+  const overdue = isInvoiceOverdue(invoice.dueDate, invoice.status);
+  const outstanding =
+    Number(invoice.totalAmount.toString()) -
+    Number(invoice.amountPaid.toString());
 
   return (
     <>
       <PageHeader
         title={invoice.invoiceNumber}
-        description={`${c.name} · Due ${invoice.dueDate.toISOString().slice(0, 10)}`}
+        description={`${c.name} · Due ${invoice.dueDate.toISOString().slice(0, 10)}${overdue ? " · Overdue" : ""}`}
         actions={
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <InvoiceDetailActions
@@ -107,33 +121,22 @@ export default async function InvoiceDetailPage({ params }: Props) {
             </div>
           </section>
 
-          <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <h2 className="text-sm font-medium">Payments</h2>
-            {invoice.payments.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                No payments recorded.
-              </p>
-            ) : (
-              <ul className="mt-2 divide-y divide-border text-sm">
-                {invoice.payments.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2"
-                  >
-                    <span className="capitalize text-muted-foreground">
-                      {p.method}
-                    </span>
-                    <span className="tabular-nums font-medium">
-                      {inr.format(Number(p.amount))}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {p.paymentDate.toISOString().slice(0, 10)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <InvoicePaymentsPanel
+            key={`${invoice.id}-${invoice.amountPaid.toString()}-${invoice.payments.length}`}
+            invoiceId={invoice.id}
+            totalAmount={invoice.totalAmount.toString()}
+            amountPaid={invoice.amountPaid.toString()}
+            status={invoice.status}
+            payments={invoice.payments.map((p) => ({
+              id: p.id,
+              amount: p.amount.toString(),
+              paymentDate: p.paymentDate.toISOString().slice(0, 10),
+              method: p.method,
+              reference: p.reference,
+              notes: p.notes,
+              createdAt: p.createdAt.toISOString(),
+            }))}
+          />
         </div>
 
         <aside className="space-y-4">
@@ -142,7 +145,15 @@ export default async function InvoiceDetailPage({ params }: Props) {
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Status</dt>
-                <dd className="capitalize">{invoice.status}</dd>
+                <dd
+                  className={cn(
+                    "capitalize",
+                    displayStatus === "overdue" && "font-medium text-destructive",
+                    displayStatus === "paid" && "text-emerald-700 dark:text-emerald-400",
+                  )}
+                >
+                  {displayStatus.replaceAll("_", " ")}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Subtotal</dt>
@@ -172,6 +183,17 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 <dt>Paid</dt>
                 <dd className="tabular-nums">
                   {inr.format(Number(invoice.amountPaid))}
+                </dd>
+              </div>
+              <div className="flex justify-between border-t border-border pt-2 font-medium">
+                <dt>Outstanding</dt>
+                <dd
+                  className={cn(
+                    "tabular-nums",
+                    outstanding > 0.004 && "text-amber-800 dark:text-amber-300",
+                  )}
+                >
+                  {inr.format(Math.max(0, outstanding))}
                 </dd>
               </div>
             </dl>
