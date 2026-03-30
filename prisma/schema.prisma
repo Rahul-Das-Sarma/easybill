@@ -37,6 +37,7 @@ model User {
   name           String
   email          String   @unique
   companyName    String   @map("company_name")
+  invoicePrefix  String   @default("INV") @map("invoice_prefix")
   companyLogoUrl String?  @map("company_logo_url")
   gstNumber      String?  @map("gst_number")
   address        String

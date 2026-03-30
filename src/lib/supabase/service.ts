@@ -17,3 +17,7 @@ export function createServiceRoleClient() {
 export function getInvoicePdfBucket(): string {
   return process.env.SUPABASE_INVOICE_PDF_BUCKET ?? "invoice-pdfs";
 }
+
+export function getCompanyLogoBucket(): string {
+  return process.env.SUPABASE_COMPANY_LOGO_BUCKET ?? "company-logos";
+}

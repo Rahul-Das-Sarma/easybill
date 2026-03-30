@@ -33,6 +33,7 @@ export async function ensureAppUser(user: SupabaseUser) {
       email,
       name,
       companyName,
+      invoicePrefix: "INV",
       address,
     },
     update: {
