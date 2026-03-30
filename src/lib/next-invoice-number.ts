@@ -8,7 +8,13 @@ export async function getNextInvoiceNumber(
 ): Promise<string> {
   const db = tx;
   const year = new Date().getFullYear();
-  const prefix = `INV-${year}-`;
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { invoicePrefix: true },
+  });
+  const rawPrefix = (user?.invoicePrefix ?? "INV").trim().toUpperCase();
+  const safePrefix = rawPrefix.replace(/[^A-Z0-9-]/g, "") || "INV";
+  const prefix = `${safePrefix}-${year}-`;
   const latest = await db.invoice.findFirst({
     where: { userId, invoiceNumber: { startsWith: prefix } },
     orderBy: { invoiceNumber: "desc" },
