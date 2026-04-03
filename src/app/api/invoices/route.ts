@@ -224,12 +224,39 @@ export async function POST(req: Request) {
 
       if (body.newCustomer && !customerId) {
         const nc = body.newCustomer;
+        const email = nc.email?.trim() || null;
+        const phone = nc.phone?.trim() || null;
+
+        if (email || phone) {
+          const orConditions: Prisma.CustomerWhereInput[] = [];
+          if (email) {
+            orConditions.push({ email: { equals: email, mode: "insensitive" } });
+          }
+          if (phone) {
+            orConditions.push({ phone: { equals: phone } });
+          }
+
+          if (orConditions.length > 0) {
+            const existing = await tx.customer.findFirst({
+              where: {
+                userId: user.id,
+                OR: orConditions,
+              },
+              select: { id: true },
+            });
+
+            if (existing) {
+              throw new Error("DUPLICATE_CUSTOMER");
+            }
+          }
+        }
+
         const c = await tx.customer.create({
           data: {
             userId: user.id,
             name: nc.name.trim(),
-            email: nc.email?.trim() || null,
-            phone: nc.phone?.trim() || null,
+            email,
+            phone,
             address: nc.address?.trim() || null,
             gstNumber: nc.gstNumber?.trim() || null,
           },
@@ -296,6 +323,16 @@ export async function POST(req: Request) {
   } catch (e) {
     if (e instanceof Error && e.message === "FORBIDDEN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (e instanceof Error && e.message === "DUPLICATE_CUSTOMER") {
+      return NextResponse.json(
+        {
+          error:
+            "Customer already exists. Use the existing customer (matching email or phone) to avoid duplicates.",
+        },
+        { status: 409 },
+      );
     }
     throw e;
   }

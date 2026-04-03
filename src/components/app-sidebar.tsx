@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -22,9 +23,17 @@ const nav = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function AppSidebar({ email }: { email?: string }) {
+export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [email, setEmail] = useState<string | undefined>();
+
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      setEmail(user?.email ?? undefined);
+    });
+  }, []);
 
   async function signOut() {
     const supabase = createClient();

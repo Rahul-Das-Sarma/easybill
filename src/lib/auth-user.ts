@@ -26,18 +26,29 @@ export async function ensureAppUser(user: SupabaseUser) {
   const address =
     (typeof meta?.address === "string" && meta.address) || "—";
 
-  await prisma.user.upsert({
+  const existing = await prisma.user.findUnique({
     where: { id: user.id },
-    create: {
-      id: user.id,
-      email,
-      name,
-      companyName,
-      invoicePrefix: "INV",
-      address,
-    },
-    update: {
-      email,
-    },
+    select: { id: true, email: true },
   });
+
+  if (!existing) {
+    await prisma.user.create({
+      data: {
+        id: user.id,
+        email,
+        name,
+        companyName,
+        invoicePrefix: "INV",
+        address,
+      },
+    });
+    return;
+  }
+
+  if (existing.email !== email) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { email },
+    });
+  }
 }

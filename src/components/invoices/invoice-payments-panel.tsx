@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { paymentMethodLabel } from "@/lib/invoice-payment-status";
+import { Loader2 } from "lucide-react";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -312,8 +313,21 @@ export function InvoicePaymentsPanel({
           {formError ? (
             <p className="text-sm text-destructive">{formError}</p>
           ) : null}
-          <Button type="submit" size="sm" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Add payment"}
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+            className="gap-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden />
+                Saving…
+              </>
+            ) : (
+              "Add payment"
+            )}
           </Button>
         </form>
       ) : null}
