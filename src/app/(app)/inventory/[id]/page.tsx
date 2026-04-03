@@ -36,14 +36,14 @@ export default async function EditProductPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <PageHeader
-        title="Edit product"
+        title="Edit Product"
         description={initial.name}
         actions={
           <Link
             href="/inventory"
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
-            Back to inventory
+            Back to Inventory
           </Link>
         }
       />

@@ -1,3 +1,5 @@
+import { formatProductNameForDisplay } from "@/lib/product-name";
+
 /** JSON-safe product shape for API responses (Decimals → numbers). */
 export function productToJson(p: {
   id: string;
@@ -16,7 +18,7 @@ export function productToJson(p: {
   return {
     id: p.id,
     userId: p.userId,
-    name: p.name,
+    name: formatProductNameForDisplay(p.name),
     sku: p.sku,
     barcode: p.barcode,
     description: p.description,

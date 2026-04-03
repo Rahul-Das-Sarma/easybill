@@ -229,14 +229,14 @@ export function ProductForm({ mode, productId, initial }: Props) {
           ) : null}
 
           <SectionHeader
-            title="Product details"
+            title="Product Details"
             description="How this item appears on invoices. SKU and barcode must each be unique in your account when set."
           />
 
           <div className="space-y-6 px-6 py-6 sm:px-8">
             <div className="space-y-2">
               <FieldLabel htmlFor="product-name" required>
-                Display name
+                Display Name
               </FieldLabel>
               <input
                 id="product-name"
@@ -311,7 +311,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
           </div>
 
           <SectionHeader
-            title="Stock & pricing"
+            title="Stock & Pricing"
             description="Quantity on hand and default values when you add this product to an invoice."
           />
 
@@ -367,7 +367,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
             </div>
             <div className="space-y-2">
               <FieldLabel htmlFor="product-tax" hint="GST on line.">
-                Tax rate
+                Tax Rate
               </FieldLabel>
               <div className="relative">
                 <select
@@ -419,9 +419,9 @@ export function ProductForm({ mode, productId, initial }: Props) {
                     Saving…
                   </>
                 ) : mode === "create" ? (
-                  "Create product"
+                  "Create Product"
                 ) : (
-                  "Save changes"
+                  "Save Changes"
                 )}
               </Button>
               <Link
@@ -446,7 +446,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
                 ) : (
                   <Trash2 className="mr-2 size-4" aria-hidden />
                 )}
-                Delete product
+                Delete Product
               </Button>
             ) : null}
           </div>

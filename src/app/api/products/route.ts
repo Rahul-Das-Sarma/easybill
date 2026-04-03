@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { productToJson } from "@/lib/product-json";
+import { normalizeProductNameForStorage } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
 
 const gstRateSchema = z.union([
@@ -42,21 +43,27 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") ?? "").trim();
+  const limit = Math.min(
+    100,
+    Math.max(1, Number.parseInt(searchParams.get("limit") ?? "25", 10) || 25),
+  );
+
+  if (!q) {
+    return NextResponse.json({ products: [] });
+  }
 
   const products = await prisma.product.findMany({
     where: {
       userId: user.id,
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { sku: { contains: q, mode: "insensitive" } },
-              { barcode: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
+      isActive: true,
+      OR: [
+        { name: { contains: q, mode: "insensitive" } },
+        { sku: { contains: q, mode: "insensitive" } },
+        { barcode: { contains: q, mode: "insensitive" } },
+      ],
     },
     orderBy: [{ name: "asc" }],
+    take: limit,
   });
 
   return NextResponse.json({
@@ -93,7 +100,7 @@ export async function POST(req: Request) {
     const product = await prisma.product.create({
       data: {
         userId: user.id,
-        name: parsed.data.name.trim(),
+        name: normalizeProductNameForStorage(parsed.data.name),
         sku,
         barcode,
         description: parsed.data.description?.trim() || null,

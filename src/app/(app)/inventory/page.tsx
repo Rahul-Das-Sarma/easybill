@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { formatProductNameForDisplay } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +61,7 @@ export default async function InventoryPage({ searchParams }: Props) {
             href="/inventory/new"
             className={cn(buttonVariants({ variant: "default", size: "sm" }))}
           >
-            Add product
+            Add Product
           </Link>
         }
       />
@@ -117,7 +118,7 @@ export default async function InventoryPage({ searchParams }: Props) {
                   buttonVariants({ variant: "default", size: "default" }),
                 )}
               >
-                Add product
+                Add Product
               </Link>
             ) : null}
           </div>
@@ -126,12 +127,12 @@ export default async function InventoryPage({ searchParams }: Props) {
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium text-muted-foreground">
-                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Product Name</th>
                   <th className="px-4 py-3">SKU</th>
                   <th className="px-4 py-3">Barcode</th>
-                  <th className="px-4 py-3 text-right">Qty</th>
-                  <th className="px-4 py-3 text-right">Unit price</th>
-                  <th className="px-4 py-3 text-right">GST</th>
+                  <th className="px-4 py-3 text-right">Quantity</th>
+                  <th className="px-4 py-3 text-right">Unit Price (₹)</th>
+                  <th className="px-4 py-3 text-right">GST (%)</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -145,7 +146,9 @@ export default async function InventoryPage({ searchParams }: Props) {
                     )}
                   >
                     <td className="px-4 py-2">
-                      <span className="font-medium">{p.name}</span>
+                      <span className="font-medium">
+                        {formatProductNameForDisplay(p.name)}
+                      </span>
                       {!p.isActive ? (
                         <span className="ml-2 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                           Inactive
