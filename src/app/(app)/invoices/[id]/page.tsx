@@ -11,7 +11,7 @@ import {
   isInvoiceOverdue,
 } from "@/lib/invoice-payment-status";
 import { prisma } from "@/lib/prisma";
-import { cn } from "@/lib/utils";
+import { cn, invoiceStatusTextClass } from "@/lib/utils";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -148,8 +148,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 <dd
                   className={cn(
                     "capitalize",
-                    displayStatus === "overdue" && "font-medium text-destructive",
-                    displayStatus === "paid" && "text-emerald-700 dark:text-emerald-400",
+                    invoiceStatusTextClass(displayStatus),
                   )}
                 >
                   {displayStatus.replaceAll("_", " ")}
@@ -190,7 +189,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 <dd
                   className={cn(
                     "tabular-nums",
-                    outstanding > 0.004 && "text-amber-800 dark:text-amber-300",
+                    outstanding > 0.004 && "text-warning",
                   )}
                 >
                   {inr.format(Math.max(0, outstanding))}

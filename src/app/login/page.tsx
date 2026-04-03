@@ -16,9 +16,9 @@ function LoginFormFallback() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-muted/30 px-4 py-12">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-section/50 px-4 py-12">
       <div className="mb-8 flex items-center gap-2 text-lg font-semibold tracking-tight">
-        <Receipt className="size-6 text-primary" aria-hidden />
+        <Receipt className="size-6 text-brand" aria-hidden />
         EasyBill
       </div>
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">

@@ -16,8 +16,12 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+/**
+ * In development, avoid caching on `globalThis`. After `prisma generate`, a stale
+ * cached client would miss new models (e.g. `prisma.product` is undefined).
+ * Production keeps a singleton to limit connection usage.
+ */
+export const prisma =
+  process.env.NODE_ENV === "production"
+    ? (globalForPrisma.prisma ??= createPrismaClient())
+    : createPrismaClient();
