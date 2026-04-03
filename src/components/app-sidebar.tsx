@@ -11,6 +11,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  Package,
   Receipt,
   Settings,
   Users,
@@ -19,6 +20,7 @@ import {
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Invoices", icon: FileText },
+  { href: "/inventory", label: "Inventory", icon: Package },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -45,7 +47,7 @@ export function AppSidebar() {
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <Receipt className="size-5 text-primary" aria-hidden />
+        <Receipt className="size-5 text-brand" aria-hidden />
         <span className="font-semibold tracking-tight">EasyBill</span>
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 p-2">

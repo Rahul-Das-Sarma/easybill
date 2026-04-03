@@ -47,8 +47,31 @@ model User {
 
   customers Customer[]
   invoices  Invoice[]
+  products  Product[]
 
   @@map("users")
+}
+
+model Product {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String
+  sku         String?
+  barcode     String?
+  description String?
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(10, 2)
+  taxRate     Decimal  @default(18) @map("tax_rate") @db.Decimal(5, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([userId, sku])
+  @@unique([userId, barcode])
+  @@map("products")
 }
 
 model Customer {

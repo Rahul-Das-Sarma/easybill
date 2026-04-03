@@ -10,7 +10,7 @@ export default function HomePage() {
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-2 font-semibold tracking-tight">
-            <Receipt className="size-5 text-primary" aria-hidden />
+            <Receipt className="size-5 text-brand" aria-hidden />
             EasyBill
           </div>
           <Link
@@ -22,7 +22,7 @@ export default function HomePage() {
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-16 md:px-6 md:py-24">
-        <p className="text-sm font-medium text-primary">Invoice ERP for India</p>
+        <p className="text-sm font-medium text-brand">Invoice ERP for India</p>
         <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-tight md:text-5xl">
           GST invoices, sent and tracked in one place.
         </h1>
@@ -64,7 +64,7 @@ export default function HomePage() {
               key={title}
               className="rounded-xl border border-border bg-card p-5 shadow-sm"
             >
-              <Icon className="size-8 text-primary" aria-hidden />
+              <Icon className="size-8 text-brand-600" aria-hidden />
               <h2 className="mt-3 font-medium">{title}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{body}</p>
             </li>

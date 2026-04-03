@@ -47,7 +47,14 @@ export async function POST(req: Request) {
         userId: user.id,
         OR: [
           ...(email
-            ? [{ email: { equals: email, mode: "insensitive" } }]
+            ? [
+                {
+                  email: {
+                    equals: email,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ]
             : []),
           ...(phone ? [{ phone: { equals: phone } }] : []),
         ],

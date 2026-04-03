@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useFieldArray,
   useForm,
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { computeInvoiceLines, GST_RATES } from "@/lib/invoice-math";
 import { cn } from "@/lib/utils";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, UserPlus } from "lucide-react";
 
 const gstRateSchema = z.union([
   z.literal(0),
@@ -44,13 +44,7 @@ const lineSchema = z.object({
 
 const formSchema = z
   .object({
-    customerMode: z.enum(["existing", "new"]),
     customerId: z.string().optional(),
-    newName: z.string().optional(),
-    newEmail: z.string().optional(),
-    newPhone: z.string().optional(),
-    newAddress: z.string().optional(),
-    newGst: z.string().optional(),
     issueDate: z.string().min(1),
     dueDate: z.string().min(1),
     lines: z.array(lineSchema).min(1),
@@ -66,23 +60,13 @@ const formSchema = z
     customerNotes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.customerMode === "existing") {
-      const uuid = z.string().uuid().safeParse(data.customerId);
-      if (!uuid.success) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Select a customer",
-          path: ["customerId"],
-        });
-      }
-    } else {
-      if (!data.newName?.trim()) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Customer name required",
-          path: ["newName"],
-        });
-      }
+    const uuid = z.string().uuid().safeParse(data.customerId);
+    if (!uuid.success) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Select a customer",
+        path: ["customerId"],
+      });
     }
   });
 
@@ -113,27 +97,64 @@ const inr = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+const SCROLL_LOCK_ATTR = "data-easybill-scroll-y";
+
+function lockDocumentScroll() {
+  if (document.body.hasAttribute(SCROLL_LOCK_ATTR)) return;
+  const y = window.scrollY;
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  document.body.setAttribute(SCROLL_LOCK_ATTR, String(y));
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${y}px`;
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+}
+
+function unlockDocumentScroll() {
+  const raw = document.body.getAttribute(SCROLL_LOCK_ATTR);
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  document.body.removeAttribute(SCROLL_LOCK_ATTR);
+  if (raw !== null) {
+    const y = Number(raw);
+    if (!Number.isNaN(y)) window.scrollTo(0, y);
+  }
+}
+
 export function InvoiceCreateForm({
   defaultInvoiceNumber,
 }: {
   defaultInvoiceNumber: string;
 }) {
   const router = useRouter();
+  const customerDialogRef = useRef<HTMLDialogElement>(null);
   const [searchQ, setSearchQ] = useState("");
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newAddress, setNewAddress] = useState("");
+  const [newGst, setNewGst] = useState("");
+  const [createCustomerError, setCreateCustomerError] = useState<string | null>(
+    null,
+  );
+  const [createCustomerSubmitting, setCreateCustomerSubmitting] =
+    useState(false);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: {
-      customerMode: "existing",
       customerId: "",
-      newName: "",
-      newEmail: "",
-      newPhone: "",
-      newAddress: "",
-      newGst: "",
       issueDate: todayISO(),
       dueDate: addDaysISO(30),
       lines: [
@@ -181,9 +202,83 @@ export function InvoiceCreateForm({
     return () => clearTimeout(t);
   }, [searchQ, fetchCustomers]);
 
-  const customerMode = useWatch({ control: form.control, name: "customerMode" });
   const selectedId = useWatch({ control: form.control, name: "customerId" });
   const selectedCustomer = hits.find((h) => h.id === selectedId);
+
+  function openCustomerDialog() {
+    const el = customerDialogRef.current;
+    if (!el || el.open) return;
+    setCreateCustomerError(null);
+    setNewName("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewAddress("");
+    setNewGst("");
+    lockDocumentScroll();
+    el.showModal();
+  }
+
+  function closeCustomerDialog() {
+    customerDialogRef.current?.close();
+  }
+
+  useEffect(() => {
+    const dialog = customerDialogRef.current;
+    if (!dialog) return;
+    const onClose = () => unlockDocumentScroll();
+    dialog.addEventListener("close", onClose);
+    return () => {
+      dialog.removeEventListener("close", onClose);
+      unlockDocumentScroll();
+    };
+  }, []);
+
+  async function onCreateCustomer(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateCustomerError(null);
+    setCreateCustomerSubmitting(true);
+    try {
+      const res = await fetch("/api/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          email: newEmail.trim() || undefined,
+          phone: newPhone.trim() || null,
+          address: newAddress.trim() || null,
+          gstNumber: newGst.trim() || null,
+        }),
+      });
+      const json = (await res.json()) as {
+        error?: string | Record<string, string[]>;
+        customer?: SearchHit;
+      };
+      if (!res.ok) {
+        const msg =
+          typeof json.error === "string"
+            ? json.error
+            : "Could not create customer. Check the fields and try again.";
+        setCreateCustomerError(msg);
+        return;
+      }
+      if (!json.customer) {
+        setCreateCustomerError("Unexpected response from server.");
+        return;
+      }
+      const c = json.customer;
+      setHits((prev) => {
+        const rest = prev.filter((x) => x.id !== c.id);
+        return [c, ...rest];
+      });
+      form.setValue("customerId", c.id);
+      setSearchQ(c.name);
+      setSearchOpen(false);
+      closeCustomerDialog();
+      void fetchCustomers(c.name);
+    } finally {
+      setCreateCustomerSubmitting(false);
+    }
+  }
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null);
@@ -202,17 +297,7 @@ export function InvoiceCreateForm({
       customerNotes: values.customerNotes?.trim() || null,
     };
 
-    if (values.customerMode === "existing") {
-      body.customerId = values.customerId;
-    } else {
-      body.newCustomer = {
-        name: values.newName!.trim(),
-        email: values.newEmail?.trim() || null,
-        phone: values.newPhone?.trim() || null,
-        address: values.newAddress?.trim() || null,
-        gstNumber: values.newGst?.trim() || null,
-      };
-    }
+    body.customerId = values.customerId;
 
     const res = await fetch("/api/invoices", {
       method: "POST",
@@ -241,10 +326,11 @@ export function InvoiceCreateForm({
   }
 
   return (
-    <form
-      onSubmit={form.handleSubmit((v) => onSubmit(v))}
-      className="space-y-8"
-    >
+    <>
+      <form
+        onSubmit={form.handleSubmit((v) => onSubmit(v))}
+        className="space-y-8"
+      >
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="text-sm font-medium">Invoice</h2>
@@ -288,142 +374,76 @@ export function InvoiceCreateForm({
         </div>
 
         <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="text-sm font-medium">Customer</h2>
-          <div className="flex gap-2">
-            <button
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-medium">Customer</h2>
+            <Button
               type="button"
-              className={cn(
-                buttonVariants({
-                  variant: customerMode === "existing" ? "default" : "outline",
-                  size: "sm",
-                }),
-              )}
-              onClick={() => form.setValue("customerMode", "existing")}
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={openCustomerDialog}
             >
-              Existing
-            </button>
-            <button
-              type="button"
-              className={cn(
-                buttonVariants({
-                  variant: customerMode === "new" ? "default" : "outline",
-                  size: "sm",
-                }),
-              )}
-              onClick={() => {
-                form.setValue("customerMode", "new");
-                form.setValue("customerId", "");
-              }}
-            >
-              New customer
-            </button>
+              <UserPlus className="size-4" aria-hidden />
+              Add new customer
+            </Button>
           </div>
 
-          {customerMode === "existing" ? (
-            <div className="relative">
-              <label className="text-xs font-medium text-muted-foreground">
-                Search customers
-              </label>
-              <input
-                type="search"
-                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                placeholder="Name, email, phone, GSTIN…"
-                value={searchQ}
-                onChange={(e) => {
-                  setSearchQ(e.target.value);
-                  setSearchOpen(true);
-                }}
-                onFocus={() => setSearchOpen(true)}
-              />
-              {searchOpen && hits.length > 0 ? (
-                <ul
-                  className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-md"
-                  role="listbox"
-                >
-                  {hits.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        className="flex w-full flex-col px-3 py-2 text-left hover:bg-muted"
-                        onClick={() => {
-                          form.setValue("customerId", c.id);
-                          setSearchQ(c.name);
-                          setSearchOpen(false);
-                        }}
-                      >
-                        <span className="font-medium">{c.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {[c.email, c.gstNumber].filter(Boolean).join(" · ") ||
-                            c.id.slice(0, 8)}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {selectedCustomer ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Selected:{" "}
-                  <span className="font-medium text-foreground">
-                    {selectedCustomer.name}
-                  </span>
-                </p>
-              ) : null}
-              <input type="hidden" {...form.register("customerId")} />
-              {form.formState.errors.customerId ? (
-                <p className="mt-1 text-xs text-destructive">
-                  {form.formState.errors.customerId.message}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              <div>
-                <label className="text-xs font-medium">Name *</label>
-                <input
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  {...form.register("newName")}
-                />
-                {form.formState.errors.newName ? (
-                  <p className="mt-1 text-xs text-destructive">
-                    {form.formState.errors.newName.message}
-                  </p>
-                ) : null}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-xs font-medium">Email</label>
-                  <input
-                    type="email"
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                    {...form.register("newEmail")}
-                />
-                </div>
-                <div>
-                  <label className="text-xs font-medium">Phone</label>
-                  <input
-                    className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                    {...form.register("newPhone")}
-                />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium">Address</label>
-                <textarea
-                  rows={2}
-                  className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  {...form.register("newAddress")}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium">GSTIN</label>
-                <input
-                  className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                  {...form.register("newGst")}
-                />
-              </div>
-            </div>
-          )}
+          <div className="relative">
+            <label className="text-xs font-medium text-muted-foreground">
+              Search customers
+            </label>
+            <input
+              type="search"
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              placeholder="Name, email, phone, GSTIN…"
+              value={searchQ}
+              onChange={(e) => {
+                setSearchQ(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+            />
+            {searchOpen && hits.length > 0 ? (
+              <ul
+                className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-md"
+                role="listbox"
+              >
+                {hits.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      className="flex w-full flex-col px-3 py-2 text-left hover:bg-muted"
+                      onClick={() => {
+                        form.setValue("customerId", c.id);
+                        setSearchQ(c.name);
+                        setSearchOpen(false);
+                      }}
+                    >
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {[c.email, c.gstNumber].filter(Boolean).join(" · ") ||
+                          c.id.slice(0, 8)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {selectedCustomer ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Selected:{" "}
+                <span className="font-medium text-foreground">
+                  {selectedCustomer.name}
+                </span>
+              </p>
+            ) : null}
+            <input type="hidden" {...form.register("customerId")} />
+            {form.formState.errors.customerId ? (
+              <p className="mt-1 text-xs text-destructive">
+                {form.formState.errors.customerId.message}
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -643,6 +663,126 @@ export function InvoiceCreateForm({
           Cancel
         </Link>
       </div>
-    </form>
+      </form>
+
+      <dialog
+        ref={customerDialogRef}
+        aria-labelledby="new-customer-title"
+        aria-modal="true"
+        className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-0 shadow-lg [&::backdrop]:bg-black/40"
+        onClose={() => setCreateCustomerError(null)}
+      >
+        <form
+          onSubmit={onCreateCustomer}
+          className="flex max-h-[min(90vh,640px)] flex-col"
+        >
+          <div className="border-b border-border px-5 py-4">
+            <h3 id="new-customer-title" className="text-base font-semibold">
+              New customer
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Saved to your customer list — you can search and select them for
+              future invoices.
+            </p>
+          </div>
+          <div className="space-y-3 overflow-y-auto px-5 py-4">
+          <div>
+            <label htmlFor="new-customer-name" className="text-xs font-medium">
+              Name <span className="text-destructive">*</span>
+            </label>
+            <input
+              id="new-customer-name"
+              required
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoComplete="name"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="new-customer-email" className="text-xs font-medium">
+                Email
+              </label>
+              <input
+                id="new-customer-email"
+                type="email"
+                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <label htmlFor="new-customer-phone" className="text-xs font-medium">
+                Phone
+              </label>
+              <input
+                id="new-customer-phone"
+                type="tel"
+                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                autoComplete="tel"
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="new-customer-address" className="text-xs font-medium">
+              Address
+            </label>
+            <textarea
+              id="new-customer-address"
+              rows={2}
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              value={newAddress}
+              onChange={(e) => setNewAddress(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="new-customer-gst" className="text-xs font-medium">
+              GSTIN
+            </label>
+            <input
+              id="new-customer-gst"
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              value={newGst}
+              onChange={(e) => setNewGst(e.target.value)}
+            />
+          </div>
+          {createCustomerError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {createCustomerError}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={closeCustomerDialog}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={createCustomerSubmitting}
+            className="gap-2"
+          >
+            {createCustomerSubmitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Saving…
+              </>
+            ) : (
+              "Create customer"
+            )}
+          </Button>
+        </div>
+      </form>
+    </dialog>
+    </>
   );
 }

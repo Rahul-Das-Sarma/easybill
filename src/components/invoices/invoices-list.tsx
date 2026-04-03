@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { cn } from "@/lib/utils";
+import { cn, invoiceStatusBadgeClass } from "@/lib/utils";
 import { Download, Eye, Loader2 } from "lucide-react";
 
 const tabs = [
@@ -241,15 +241,7 @@ export function InvoicesList() {
                       {inv.customer.name}
                     </td>
                     <td className="px-3 py-2">
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                          badgeStatus === "paid" && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-                          badgeStatus === "overdue" && "bg-destructive/15 text-destructive",
-                          ["draft", "pending", "partial"].includes(badgeStatus) &&
-                            "bg-amber-500/15 text-amber-800 dark:text-amber-300",
-                        )}
-                      >
+                      <span className={invoiceStatusBadgeClass(badgeStatus)}>
                         {badgeStatus.replaceAll("_", " ")}
                       </span>
                     </td>

@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { effectiveInvoiceStatus, utcStartOfToday } from "@/lib/invoice-payment-status";
 import { prisma } from "@/lib/prisma";
-import { cn } from "@/lib/utils";
+import { cn, invoiceStatusBadgeClass } from "@/lib/utils";
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -194,17 +194,7 @@ export default async function DashboardPage() {
                       >
                         {inv.invoiceNumber}
                       </Link>
-                      <span
-                        className={cn(
-                          "inline-flex rounded-full px-2 py-0.5 text-xs font-medium capitalize",
-                          displayStatus === "paid" &&
-                            "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-                          displayStatus === "overdue" &&
-                            "bg-destructive/15 text-destructive",
-                          ["draft", "pending", "partial"].includes(displayStatus) &&
-                            "bg-amber-500/15 text-amber-800 dark:text-amber-300",
-                        )}
-                      >
+                      <span className={invoiceStatusBadgeClass(displayStatus)}>
                         {displayStatus}
                       </span>
                     </div>

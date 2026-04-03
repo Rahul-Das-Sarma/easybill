@@ -3,8 +3,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { cn } from "@/lib/utils";
-import { effectiveInvoiceStatus, isInvoiceOverdue } from "@/lib/invoice-payment-status";
+import { cn, invoiceStatusTextClass } from "@/lib/utils";
+import { effectiveInvoiceStatus } from "@/lib/invoice-payment-status";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { prisma } from "@/lib/prisma";
 
@@ -143,7 +143,6 @@ export default async function CustomerDetailPage({ params }: Props) {
                       inv.status,
                       inv.amountPaid,
                     );
-                    const overdue = isInvoiceOverdue(inv.dueDate, inv.status);
                     const outstanding =
                       Number(inv.totalAmount.toString()) -
                       Number(inv.amountPaid.toString());
@@ -159,12 +158,7 @@ export default async function CustomerDetailPage({ params }: Props) {
                           <span
                             className={cn(
                               "capitalize",
-                              displayStatus === "overdue" && "font-medium text-destructive",
-                              overdue &&
-                                displayStatus === "overdue" &&
-                                "font-medium text-destructive",
-                              displayStatus === "paid" && "font-medium text-emerald-700 dark:text-emerald-400",
-                              displayStatus === "partial" && "font-medium text-amber-800 dark:text-amber-300",
+                              invoiceStatusTextClass(displayStatus),
                             )}
                           >
                             {displayStatus.replaceAll("_", " ")}
