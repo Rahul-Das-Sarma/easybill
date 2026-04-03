@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { productToJson } from "@/lib/product-json";
+import { normalizeProductNameForStorage } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
 
 const gstRateSchema = z.union([
@@ -89,7 +90,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const d = parsed.data;
   const data: Prisma.ProductUpdateInput = {};
 
-  if (d.name !== undefined) data.name = d.name.trim();
+  if (d.name !== undefined) data.name = normalizeProductNameForStorage(d.name);
   if (d.sku !== undefined) data.sku = normalizeOptionalCode(d.sku);
   if (d.barcode !== undefined) data.barcode = normalizeOptionalCode(d.barcode);
   if (d.description !== undefined) data.description = d.description?.trim() || null;

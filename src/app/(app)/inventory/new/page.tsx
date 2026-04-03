@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ProductForm } from "@/components/inventory/product-form";
+import { ProductBulkForm } from "@/components/inventory/product-bulk-form";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
@@ -15,20 +15,20 @@ export default async function NewProductPage() {
   await ensureAppUser(user);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
-        title="New product"
-        description="Enter a display name, quantity, and unit price. SKU and barcode are optional but must be unique when set."
+        title="Add Products"
+        description="Add several rows, review the summary table, then save once. Empty rows are ignored. SKU and barcode must be unique when set."
         actions={
           <Link
             href="/inventory"
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
-            Back to inventory
+            Back to Inventory
           </Link>
         }
       />
-      <ProductForm mode="create" />
+      <ProductBulkForm />
     </div>
   );
 }
