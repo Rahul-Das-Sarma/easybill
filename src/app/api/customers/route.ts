@@ -38,6 +38,34 @@ export async function POST(req: Request) {
     );
   }
 
+  const email = parsed.data.email?.trim() || null;
+  const phone = parsed.data.phone?.trim() || null;
+
+  if (email || phone) {
+    const existing = await prisma.customer.findFirst({
+      where: {
+        userId: user.id,
+        OR: [
+          ...(email
+            ? [{ email: { equals: email, mode: "insensitive" } }]
+            : []),
+          ...(phone ? [{ phone: { equals: phone } }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        {
+          error:
+            "Customer already exists. Use the existing customer (matching email or phone) to avoid duplicates.",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const customer = await prisma.customer.create({
     data: {
       userId: user.id,

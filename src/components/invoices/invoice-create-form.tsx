@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { computeInvoiceLines, GST_RATES } from "@/lib/invoice-math";
 import { cn } from "@/lib/utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 const gstRateSchema = z.union([
   z.literal(0),
@@ -242,7 +242,7 @@ export function InvoiceCreateForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit((v) => void onSubmit(v))}
+      onSubmit={form.handleSubmit((v) => onSubmit(v))}
       className="space-y-8"
     >
       <div className="grid gap-6 lg:grid-cols-2">
@@ -621,8 +621,20 @@ export function InvoiceCreateForm({
       ) : null}
 
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Saving…" : "Save draft"}
+        <Button
+          type="submit"
+          disabled={form.formState.isSubmitting}
+          aria-busy={form.formState.isSubmitting}
+          className="gap-2"
+        >
+          {form.formState.isSubmitting ? (
+            <>
+              <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
+              Saving…
+            </>
+          ) : (
+            "Save draft"
+          )}
         </Button>
         <Link
           href="/invoices"
