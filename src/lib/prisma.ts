@@ -6,12 +6,31 @@ const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };
 
+/** Supabase (and most hosted Postgres) need TLS from Vercel. */
+function withSslIfNeeded(connectionString: string): string {
+  if (/[?&]sslmode=/i.test(connectionString)) return connectionString;
+  if (!/\.supabase\.co|\.pooler\.supabase\.com/i.test(connectionString)) {
+    return connectionString;
+  }
+  const join = connectionString.includes("?") ? "&" : "?";
+  return `${connectionString}${join}sslmode=require`;
+}
+
 function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) {
     throw new Error("DATABASE_URL is not set");
   }
-  const pool = new Pool({ connectionString });
+  // Password special chars (@ # / %) must be URL-encoded or the host is parsed wrong.
+  const connectionString = withSslIfNeeded(raw);
+  const pool = new Pool({
+    connectionString,
+    // Vercel serverless: keep pools small
+    max: 1,
+    ssl: /sslmode=require/i.test(connectionString)
+      ? { rejectUnauthorized: false }
+      : undefined,
+  });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }

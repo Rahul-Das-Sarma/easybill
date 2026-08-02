@@ -7,15 +7,22 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
+function authRedirectTo(path: string) {
+  if (typeof window === "undefined") return undefined;
+  return `${window.location.origin}${path}`;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
+  const urlError = searchParams.get("error");
 
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(urlError);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const hasPublishable =
@@ -25,7 +32,7 @@ export function LoginForm() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !hasPublishable) {
     return (
       <p className="text-center text-sm text-muted-foreground">
-        Add{" "}
+        Missing Supabase env vars. On Vercel set{" "}
         <code className="rounded bg-muted px-1 py-0.5 text-xs">
           NEXT_PUBLIC_SUPABASE_URL
         </code>{" "}
@@ -33,8 +40,13 @@ export function LoginForm() {
         <code className="rounded bg-muted px-1 py-0.5 text-xs">
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
         </code>{" "}
-        to <code className="text-xs">.env.local</code>, then restart the dev
-        server.
+        (or{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">
+          NEXT_PUBLIC_SUPABASE_ANON_KEY
+        </code>
+        ), then <strong>redeploy</strong> so{" "}
+        <code className="text-xs">NEXT_PUBLIC_*</code> values are baked into the
+        client.
       </p>
     );
   }
@@ -42,6 +54,7 @@ export function LoginForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
     setLoading(true);
     try {
       const supabase = createClient();
@@ -55,12 +68,23 @@ export function LoginForm() {
           return;
         }
       } else {
-        const { error: err } = await supabase.auth.signUp({
+        const { data, error: err } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: authRedirectTo("/auth/callback"),
+          },
         });
         if (err) {
           setError(err.message);
+          return;
+        }
+        // Confirm-email enabled: account created, but no session until confirm.
+        if (!data.session) {
+          setInfo(
+            "Account created. Check your email to confirm, then sign in. If no email arrives, disable “Confirm email” in Supabase Auth settings for testing.",
+          );
+          setMode("signin");
           return;
         }
       }
@@ -82,7 +106,11 @@ export function LoginForm() {
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",
           )}
-          onClick={() => setMode("signin")}
+          onClick={() => {
+            setMode("signin");
+            setError(null);
+            setInfo(null);
+          }}
         >
           Sign in
         </button>
@@ -94,7 +122,11 @@ export function LoginForm() {
               ? "bg-background text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground",
           )}
-          onClick={() => setMode("signup")}
+          onClick={() => {
+            setMode("signup");
+            setError(null);
+            setInfo(null);
+          }}
         >
           Sign up
         </button>
@@ -135,6 +167,11 @@ export function LoginForm() {
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error}
+        </p>
+      ) : null}
+      {info ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          {info}
         </p>
       ) : null}
       <Button type="submit" disabled={loading} className="w-full">
