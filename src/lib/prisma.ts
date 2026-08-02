@@ -26,13 +26,15 @@ function createPrismaClient(): PrismaClient {
   }
 
   // Password special chars (@ # / %) must be URL-encoded or the host is parsed wrong.
+  // On Vercel, prefer Supabase *pooler* (port 6543) — direct db.* hosts are often IPv6-only.
   const connectionString = stripSslMode(raw);
   const useRelaxedSsl = isSupabasePostgres(connectionString);
 
   const pool = new Pool({
     connectionString,
-    // Vercel serverless: keep pools small
-    max: process.env.NODE_ENV === "production" ? 1 : 10,
+    // Vercel serverless: one connection per isolate
+    max: 1,
+    connectionTimeoutMillis: 10_000,
     ...(useRelaxedSsl
       ? {
           // Supabase uses a certificate chain Node rejects by default.
