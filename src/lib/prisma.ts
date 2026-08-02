@@ -47,11 +47,12 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
- * In development, avoid caching on `globalThis`. After `prisma generate`, a stale
- * cached client would miss new models (e.g. `prisma.product` is undefined).
- * Production keeps a singleton to limit connection usage.
+ * Use a singleton in all environments so navigations do not open a new
+ * Postgres pool per module reload. After `prisma generate`, restart the
+ * dev server once if models look missing.
  */
-export const prisma =
-  process.env.NODE_ENV === "production"
-    ? (globalForPrisma.prisma ??= createPrismaClient())
-    : createPrismaClient();
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
