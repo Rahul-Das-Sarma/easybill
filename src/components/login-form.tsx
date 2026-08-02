@@ -105,7 +105,7 @@ export function LoginForm() {
           className={cn(
             "flex-1 rounded-md py-2 text-sm font-medium transition-colors",
             mode === "signin"
-              ? "bg-background text-foreground shadow-sm"
+              ? "bg-brand-50 text-brand-700"
               : "text-muted-foreground hover:text-foreground",
           )}
           onClick={() => {
@@ -121,7 +121,7 @@ export function LoginForm() {
           className={cn(
             "flex-1 rounded-md py-2 text-sm font-medium transition-colors",
             mode === "signup"
-              ? "bg-background text-foreground shadow-sm"
+              ? "bg-brand-50 text-brand-700"
               : "text-muted-foreground hover:text-foreground",
           )}
           onClick={() => {
