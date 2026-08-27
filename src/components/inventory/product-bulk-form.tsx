@@ -26,6 +26,7 @@ const rowSchema = z.object({
   name: z.string(),
   sku: z.string().optional(),
   barcode: z.string().optional(),
+  kind: z.enum(["finished_good", "raw_material"]),
   quantity: z.preprocess(
     (v) => (typeof v === "string" ? Number(v) : v),
     z.number().min(0),
@@ -57,6 +58,7 @@ function emptyRow(): BulkFormValues["rows"][number] {
     name: "",
     sku: "",
     barcode: "",
+    kind: "finished_good",
     quantity: 0,
     unitPrice: 0,
     taxRate: 18,
@@ -74,6 +76,7 @@ function rowFromCatalogProduct(p: ProductJson): BulkFormValues["rows"][number] {
     name: p.name,
     sku: p.sku ?? "",
     barcode: p.barcode ?? "",
+    kind: p.kind ?? "finished_good",
     quantity: p.quantity,
     unitPrice: p.unitPrice,
     taxRate: pickGstRateFromProduct(p),
@@ -212,7 +215,11 @@ function CatalogSearchForm({
   );
 }
 
-export function ProductBulkForm() {
+export function ProductBulkForm({
+  isManufacturer = false,
+}: {
+  isManufacturer?: boolean;
+}) {
   const router = useRouter();
   const [apiError, setApiError] = useState<string | null>(null);
   const form = useForm<BulkFormValues>({
@@ -249,6 +256,7 @@ export function ProductBulkForm() {
         unitPrice: r.unitPrice,
         taxRate: r.taxRate,
         isActive: r.isActive,
+        ...(isManufacturer ? { kind: r.kind } : {}),
       }));
 
     if (items.length === 0) {
@@ -330,6 +338,9 @@ export function ProductBulkForm() {
               <thead>
                 <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
                   <th className="px-2 py-2">Product Name *</th>
+                  {isManufacturer ? (
+                    <th className="px-2 py-2">Type</th>
+                  ) : null}
                   <th className="px-2 py-2">SKU</th>
                   <th className="px-2 py-2">Barcode</th>
                   <th className="px-2 py-2 text-right">Quantity</th>
@@ -351,6 +362,26 @@ export function ProductBulkForm() {
                         {...form.register(`rows.${index}.name`)}
                       />
                     </td>
+                    {isManufacturer ? (
+                      <td className="px-2 py-1.5 align-middle">
+                        <div className="relative">
+                          <select
+                            className={cn(
+                              fieldClass,
+                              "min-w-[120px] cursor-pointer appearance-none pr-7",
+                            )}
+                            {...form.register(`rows.${index}.kind`)}
+                          >
+                            <option value="finished_good">Finished good</option>
+                            <option value="raw_material">Raw material</option>
+                          </select>
+                          <ChevronDown
+                            className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                            aria-hidden
+                          />
+                        </div>
+                      </td>
+                    ) : null}
                     <td className="px-2 py-1.5 align-middle">
                       <input
                         type="text"

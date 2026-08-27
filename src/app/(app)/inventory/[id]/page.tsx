@@ -5,6 +5,7 @@ import { ProductForm } from "@/components/inventory/product-form";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { getBusinessProfile } from "@/lib/business-profile";
 import { productToJson } from "@/lib/product-json";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
@@ -23,9 +24,12 @@ export default async function EditProductPage({ params }: Props) {
   }
   await ensureAppUser(user);
 
-  const product = await prisma.product.findFirst({
-    where: { id, userId: user.id },
-  });
+  const [product, profile] = await Promise.all([
+    prisma.product.findFirst({
+      where: { id, userId: user.id },
+    }),
+    getBusinessProfile(),
+  ]);
 
   if (!product) {
     notFound();
@@ -47,7 +51,12 @@ export default async function EditProductPage({ params }: Props) {
           </Link>
         }
       />
-      <ProductForm mode="edit" productId={id} initial={initial} />
+      <ProductForm
+        mode="edit"
+        productId={id}
+        initial={initial}
+        isManufacturer={profile?.isManufacturer ?? false}
+      />
     </div>
   );
 }

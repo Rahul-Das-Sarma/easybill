@@ -21,6 +21,7 @@ export default async function SettingsPage() {
       gstNumber: true,
       companyLogoUrl: true,
       invoicePrefix: true,
+      businessType: true,
     },
   });
 
@@ -32,7 +33,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Business settings"
-        description="Profile shown on invoices: name, company, GSTIN, address, logo."
+        description="Profile shown on invoices: name, company, GSTIN, address, logo. Choose trading or manufacturer for inventory tools."
       />
       <BusinessSettingsForm initial={profile} />
     </>

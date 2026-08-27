@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { ProductBomEditor } from "@/components/inventory/product-bom-editor";
 import { GST_RATES } from "@/lib/invoice-math";
 import type { ProductJson } from "@/lib/product-json";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ const schema = z.object({
   sku: z.string().optional(),
   barcode: z.string().optional(),
   description: z.string().optional(),
+  kind: z.enum(["finished_good", "raw_material"]),
   quantity: z.preprocess(
     (v) => (typeof v === "string" ? Number(v) : v),
     z.number().min(0, "Quantity cannot be negative"),
@@ -115,9 +117,15 @@ type Props = {
   mode: "create" | "edit";
   productId?: string;
   initial?: ProductJson;
+  isManufacturer?: boolean;
 };
 
-export function ProductForm({ mode, productId, initial }: Props) {
+export function ProductForm({
+  mode,
+  productId,
+  initial,
+  isManufacturer = false,
+}: Props) {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -129,6 +137,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
       sku: initial?.sku ?? "",
       barcode: initial?.barcode ?? "",
       description: initial?.description ?? "",
+      kind: initial?.kind ?? "finished_good",
       quantity: initial?.quantity ?? 0,
       unitPrice: initial?.unitPrice ?? 0,
       taxRate: (initial?.taxRate ?? 18) as FormValues["taxRate"],
@@ -137,6 +146,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
   });
 
   const busy = form.formState.isSubmitting;
+  const watchedKind = form.watch("kind");
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null);
@@ -149,6 +159,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
       unitPrice: values.unitPrice,
       taxRate: values.taxRate,
       isActive: values.isActive,
+      ...(isManufacturer ? { kind: values.kind } : {}),
     };
 
     try {
@@ -166,7 +177,7 @@ export function ProductForm({ mode, productId, initial }: Props) {
           return;
         }
         if (data.product) {
-          router.push("/inventory");
+          router.push(`/inventory/${data.product.id}`);
           router.refresh();
         }
         return;
@@ -234,6 +245,34 @@ export function ProductForm({ mode, productId, initial }: Props) {
           />
 
           <div className="space-y-6 px-6 py-6 sm:px-8">
+            {isManufacturer ? (
+              <div className="space-y-2">
+                <FieldLabel
+                  htmlFor="product-kind"
+                  hint="Finished goods are sold on invoices. Raw materials are used in production."
+                >
+                  Product type
+                </FieldLabel>
+                <div className="relative">
+                  <select
+                    id="product-kind"
+                    className={cn(
+                      fieldClass,
+                      "cursor-pointer appearance-none pr-9",
+                    )}
+                    {...form.register("kind")}
+                  >
+                    <option value="finished_good">Finished good</option>
+                    <option value="raw_material">Raw material</option>
+                  </select>
+                  <ChevronDown
+                    className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <FieldLabel htmlFor="product-name" required>
                 Display Name
@@ -452,6 +491,15 @@ export function ProductForm({ mode, productId, initial }: Props) {
           </div>
         </div>
       </form>
+
+      {mode === "edit" &&
+      productId &&
+      isManufacturer &&
+      watchedKind === "finished_good" ? (
+        <div className="mt-8">
+          <ProductBomEditor finishedGoodId={productId} />
+        </div>
+      ) : null}
     </div>
   );
 }

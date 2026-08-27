@@ -15,6 +15,16 @@ enum Plan {
   pro
 }
 
+enum BusinessType {
+  trading
+  manufacturer
+}
+
+enum ProductKind {
+  finished_good
+  raw_material
+}
+
 enum InvoiceStatus {
   draft
   pending
@@ -33,45 +43,88 @@ enum PaymentMethod {
 }
 
 model User {
-  id             String   @id @db.Uuid
-  name           String
-  email          String   @unique
-  companyName    String   @map("company_name")
-  invoicePrefix  String   @default("INV") @map("invoice_prefix")
-  companyLogoUrl String?  @map("company_logo_url")
-  gstNumber      String?  @map("gst_number")
-  address        String
-  phone          String?
-  plan           Plan     @default(free)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                  String        @id @db.Uuid
+  name                String
+  email               String        @unique
+  companyName         String        @map("company_name")
+  invoicePrefix       String        @default("INV") @map("invoice_prefix")
+  companyLogoUrl      String?       @map("company_logo_url")
+  gstNumber           String?       @map("gst_number")
+  address             String
+  phone               String?
+  plan                Plan          @default(free)
+  businessType        BusinessType  @default(trading) @map("business_type")
+  businessTypeChosen  Boolean       @default(false) @map("business_type_chosen")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  customers Customer[]
-  invoices  Invoice[]
-  products  Product[]
+  customers      Customer[]
+  invoices       Invoice[]
+  products       Product[]
+  bomComponents  BomComponent[]
+  productionRuns ProductionRun[]
 
   @@map("users")
 }
 
 model Product {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String      @map("user_id") @db.Uuid
   name        String
   sku         String?
   barcode     String?
   description String?
-  quantity    Decimal  @db.Decimal(10, 2)
-  unitPrice   Decimal  @map("unit_price") @db.Decimal(10, 2)
-  taxRate     Decimal  @default(18) @map("tax_rate") @db.Decimal(5, 2)
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  kind        ProductKind @default(finished_good)
+  quantity    Decimal     @db.Decimal(10, 2)
+  unitPrice   Decimal     @map("unit_price") @db.Decimal(10, 2)
+  taxRate     Decimal     @default(18) @map("tax_rate") @db.Decimal(5, 2)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  bomAsFinishedGood BomComponent[]  @relation("BomFinishedGood")
+  bomAsRawMaterial  BomComponent[]  @relation("BomRawMaterial")
+  productionRuns    ProductionRun[]
+
   @@index([userId])
+  @@index([userId, kind])
   @@unique([userId, sku])
   @@unique([userId, barcode])
   @@map("products")
+}
+
+/** Ingredients for one unit of a finished good (manufacturer BOM). */
+model BomComponent {
+  id              String  @id @default(uuid()) @db.Uuid
+  userId          String  @map("user_id") @db.Uuid
+  finishedGoodId  String  @map("finished_good_id") @db.Uuid
+  rawMaterialId   String  @map("raw_material_id") @db.Uuid
+  quantityPerUnit Decimal @map("quantity_per_unit") @db.Decimal(12, 4)
+
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finishedGood Product @relation("BomFinishedGood", fields: [finishedGoodId], references: [id], onDelete: Cascade)
+  rawMaterial  Product @relation("BomRawMaterial", fields: [rawMaterialId], references: [id], onDelete: Cascade)
+
+  @@unique([finishedGoodId, rawMaterialId])
+  @@index([userId])
+  @@index([finishedGoodId])
+  @@map("bom_components")
+}
+
+model ProductionRun {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  finishedGoodId String   @map("finished_good_id") @db.Uuid
+  quantity       Decimal  @db.Decimal(10, 2)
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  finishedGood Product @relation(fields: [finishedGoodId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("production_runs")
 }
 
 model Customer {

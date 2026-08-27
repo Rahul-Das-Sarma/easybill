@@ -1,8 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Factory, Store } from "lucide-react";
+
+type BusinessType = "trading" | "manufacturer";
 
 type SettingsData = {
   companyName: string;
@@ -11,14 +16,19 @@ type SettingsData = {
   gstNumber: string | null;
   companyLogoUrl: string | null;
   invoicePrefix: string;
+  businessType: BusinessType;
 };
 
 export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
+  const router = useRouter();
   const [companyName, setCompanyName] = useState(initial.companyName);
   const [address, setAddress] = useState(initial.address);
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [gstNumber, setGstNumber] = useState(initial.gstNumber ?? "");
   const [invoicePrefix, setInvoicePrefix] = useState(initial.invoicePrefix ?? "INV");
+  const [businessType, setBusinessType] = useState<BusinessType>(
+    initial.businessType,
+  );
   const [logoUrl, setLogoUrl] = useState(initial.companyLogoUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -38,6 +48,7 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
           phone,
           gstNumber,
           invoicePrefix,
+          businessType,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -48,6 +59,8 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
         return;
       }
       setMessage("Settings saved.");
+      window.dispatchEvent(new Event("easybill:business-type"));
+      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -80,6 +93,47 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-sm font-medium">Business type</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manufacturers get raw materials, bill of materials, and production.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setBusinessType("trading")}
+            className={cn(
+              "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
+              businessType === "trading"
+                ? "border-brand-500 bg-brand-50"
+                : "border-border hover:bg-muted/50",
+            )}
+          >
+            <Store className="size-5 text-brand-700" aria-hidden />
+            <span className="text-sm font-semibold">Trading / retail</span>
+            <span className="text-xs text-muted-foreground">
+              Buy and sell finished products.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBusinessType("manufacturer")}
+            className={cn(
+              "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-colors",
+              businessType === "manufacturer"
+                ? "border-brand-500 bg-brand-50"
+                : "border-border hover:bg-muted/50",
+            )}
+          >
+            <Factory className="size-5 text-brand-700" aria-hidden />
+            <span className="text-sm font-semibold">Manufacturer</span>
+            <span className="text-xs text-muted-foreground">
+              Raw materials, BOM, and production runs.
+            </span>
+          </button>
+        </div>
+      </section>
+
       <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-sm font-medium">Business profile</h2>
         <p className="mt-1 text-sm text-muted-foreground">

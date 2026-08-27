@@ -5,6 +5,7 @@ import { ProductBulkForm } from "@/components/inventory/product-bulk-form";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { getBusinessProfile } from "@/lib/business-profile";
 import { cn } from "@/lib/utils";
 
 export default async function NewProductPage() {
@@ -14,11 +15,18 @@ export default async function NewProductPage() {
   }
   await ensureAppUser(user);
 
+  const profile = await getBusinessProfile();
+  const isManufacturer = profile?.isManufacturer ?? false;
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
         title="Add Products"
-        description="Add several rows, review the summary table, then save once. Empty rows are ignored. SKU and barcode must be unique when set."
+        description={
+          isManufacturer
+            ? "Add finished goods or raw materials. Empty rows are ignored. Set a bill of materials later on each finished good."
+            : "Add several rows, review the summary table, then save once. Empty rows are ignored. SKU and barcode must be unique when set."
+        }
         actions={
           <Link
             href="/inventory"
@@ -28,7 +36,7 @@ export default async function NewProductPage() {
           </Link>
         }
       />
-      <ProductBulkForm />
+      <ProductBulkForm isManufacturer={isManufacturer} />
     </div>
   );
 }

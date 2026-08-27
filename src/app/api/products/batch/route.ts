@@ -20,6 +20,7 @@ const itemSchema = z.object({
   sku: z.string().optional().nullable(),
   barcode: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  kind: z.enum(["finished_good", "raw_material"]).optional(),
   quantity: z.coerce.number().min(0),
   unitPrice: z.coerce.number().min(0),
   taxRate: z.preprocess(
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
     sku: normalizeOptionalCode(row.sku ?? undefined),
     barcode: normalizeOptionalCode(row.barcode ?? undefined),
     description: row.description?.trim() || null,
+    kind: row.kind ?? "finished_good",
     quantity: row.quantity,
     unitPrice: row.unitPrice,
     taxRate: row.taxRate,
@@ -112,6 +114,7 @@ export async function POST(req: Request) {
             sku: row.sku,
             barcode: row.barcode,
             description: row.description,
+            kind: row.kind,
             quantity: new Prisma.Decimal(row.quantity),
             unitPrice: new Prisma.Decimal(row.unitPrice),
             taxRate: new Prisma.Decimal(row.taxRate),

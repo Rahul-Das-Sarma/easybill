@@ -30,6 +30,16 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
   const [customTax, setCustomTax] = useState<GstRateOption>(18);
   const [customError, setCustomError] = useState<string | null>(null);
   const [addTab, setAddTab] = useState<"inventory" | "custom">("inventory");
+  const [preferFinishedGoods, setPreferFinishedGoods] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { isManufacturer?: boolean } | null) => {
+        setPreferFinishedGoods(Boolean(data?.isManufacturer));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const q = query.trim();
@@ -38,7 +48,10 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
         setHits([]);
         return;
       }
-      void fetch(`/api/products?q=${encodeURIComponent(q)}&limit=20`)
+      const kindQs = preferFinishedGoods ? "&kind=finished_good" : "";
+      void fetch(
+        `/api/products?q=${encodeURIComponent(q)}&limit=20${kindQs}`,
+      )
         .then((res) => (res.ok ? res.json() : null))
         .then((data: { products?: ProductJson[] } | null) => {
           setHits(data?.products ?? []);
@@ -46,7 +59,7 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
         .catch(() => setHits([]));
     }, 250);
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, preferFinishedGoods]);
 
   function applyCatalogProduct(p: ProductJson) {
     onAppendLine(lineFromProduct(p));

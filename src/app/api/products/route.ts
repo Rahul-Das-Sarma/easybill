@@ -20,6 +20,7 @@ const createBodySchema = z.object({
   sku: z.string().optional().nullable(),
   barcode: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
+  kind: z.enum(["finished_good", "raw_material"]).optional(),
   quantity: z.coerce.number().min(0),
   unitPrice: z.coerce.number().min(0),
   taxRate: z.preprocess(
@@ -43,19 +44,39 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") ?? "").trim();
+  const kindParam = searchParams.get("kind");
+  const kind =
+    kindParam === "finished_good" || kindParam === "raw_material"
+      ? kindParam
+      : undefined;
   const limit = Math.min(
     100,
     Math.max(1, Number.parseInt(searchParams.get("limit") ?? "25", 10) || 25),
   );
 
   if (!q) {
-    return NextResponse.json({ products: [] });
+    if (!kind) {
+      return NextResponse.json({ products: [] });
+    }
+    const products = await prisma.product.findMany({
+      where: {
+        userId: user.id,
+        isActive: true,
+        kind,
+      },
+      orderBy: [{ name: "asc" }],
+      take: limit,
+    });
+    return NextResponse.json({
+      products: products.map(productToJson),
+    });
   }
 
   const products = await prisma.product.findMany({
     where: {
       userId: user.id,
       isActive: true,
+      ...(kind ? { kind } : {}),
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { sku: { contains: q, mode: "insensitive" } },
@@ -104,6 +125,7 @@ export async function POST(req: Request) {
         sku,
         barcode,
         description: parsed.data.description?.trim() || null,
+        kind: parsed.data.kind ?? "finished_good",
         quantity: new Prisma.Decimal(parsed.data.quantity),
         unitPrice: new Prisma.Decimal(parsed.data.unitPrice),
         taxRate: new Prisma.Decimal(parsed.data.taxRate),

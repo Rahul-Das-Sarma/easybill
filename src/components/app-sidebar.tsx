@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
+  Factory,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -17,10 +18,23 @@ import {
   Users,
 } from "lucide-react";
 
-const nav = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  manufacturerOnly?: boolean;
+};
+
+const nav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/inventory", label: "Inventory", icon: Package },
+  {
+    href: "/production",
+    label: "Production",
+    icon: Factory,
+    manufacturerOnly: true,
+  },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -29,13 +43,27 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | undefined>();
+  const [isManufacturer, setIsManufacturer] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
     void supabase.auth.getUser().then(({ data: { user } }) => {
       setEmail(user?.email ?? undefined);
     });
-  }, []);
+
+    function loadProfile() {
+      void fetch("/api/me")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { isManufacturer?: boolean } | null) => {
+          setIsManufacturer(Boolean(data?.isManufacturer));
+        })
+        .catch(() => {});
+    }
+
+    loadProfile();
+    window.addEventListener("easybill:business-type", loadProfile);
+    return () => window.removeEventListener("easybill:business-type", loadProfile);
+  }, [pathname]);
 
   async function signOut() {
     const supabase = createClient();
@@ -44,6 +72,10 @@ export function AppSidebar() {
     router.refresh();
   }
 
+  const items = nav.filter(
+    (item) => !item.manufacturerOnly || isManufacturer,
+  );
+
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
@@ -51,7 +83,7 @@ export function AppSidebar() {
         <span className="font-semibold tracking-tight">EasyBill</span>
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 p-2">
-        {nav.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/dashboard"
               ? pathname === "/dashboard"

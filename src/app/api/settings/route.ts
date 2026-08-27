@@ -14,7 +14,21 @@ const bodySchema = z.object({
     .min(1)
     .max(12)
     .regex(/^[A-Za-z0-9-]+$/),
+  businessType: z.enum(["trading", "manufacturer"]).optional(),
 });
+
+function settingsSelect() {
+  return {
+    companyName: true,
+    address: true,
+    phone: true,
+    gstNumber: true,
+    companyLogoUrl: true,
+    invoicePrefix: true,
+    businessType: true,
+    businessTypeChosen: true,
+  } as const;
+}
 
 export async function GET() {
   const user = await getSessionUser();
@@ -25,14 +39,7 @@ export async function GET() {
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
-    select: {
-      companyName: true,
-      address: true,
-      phone: true,
-      gstNumber: true,
-      companyLogoUrl: true,
-      invoicePrefix: true,
-    },
+    select: settingsSelect(),
   });
 
   if (!row) {
@@ -41,12 +48,8 @@ export async function GET() {
 
   return NextResponse.json({
     settings: {
-      companyName: row.companyName,
-      address: row.address,
-      phone: row.phone,
-      gstNumber: row.gstNumber,
-      companyLogoUrl: row.companyLogoUrl,
-      invoicePrefix: row.invoicePrefix,
+      ...row,
+      isManufacturer: row.businessType === "manufacturer",
     },
   });
 }
@@ -83,16 +86,20 @@ export async function PATCH(req: Request) {
       phone: body.phone?.trim() || null,
       gstNumber: body.gstNumber?.trim() || null,
       invoicePrefix: body.invoicePrefix.trim().toUpperCase(),
+      ...(body.businessType
+        ? {
+            businessType: body.businessType,
+            businessTypeChosen: true,
+          }
+        : {}),
     },
-    select: {
-      companyName: true,
-      address: true,
-      phone: true,
-      gstNumber: true,
-      companyLogoUrl: true,
-      invoicePrefix: true,
-    },
+    select: settingsSelect(),
   });
 
-  return NextResponse.json({ settings: updated });
+  return NextResponse.json({
+    settings: {
+      ...updated,
+      isManufacturer: updated.businessType === "manufacturer",
+    },
+  });
 }

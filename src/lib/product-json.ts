@@ -8,6 +8,7 @@ export function productToJson(p: {
   sku: string | null;
   barcode: string | null;
   description: string | null;
+  kind?: "finished_good" | "raw_material";
   quantity: { toString(): string };
   unitPrice: { toString(): string };
   taxRate: { toString(): string };
@@ -22,6 +23,7 @@ export function productToJson(p: {
     sku: p.sku,
     barcode: p.barcode,
     description: p.description,
+    kind: p.kind ?? "finished_good",
     quantity: Number(p.quantity),
     unitPrice: Number(p.unitPrice),
     taxRate: Number(p.taxRate),

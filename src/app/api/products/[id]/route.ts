@@ -21,6 +21,7 @@ const patchBodySchema = z
     sku: z.string().optional().nullable(),
     barcode: z.string().optional().nullable(),
     description: z.string().optional().nullable(),
+    kind: z.enum(["finished_good", "raw_material"]).optional(),
     quantity: z.coerce.number().min(0).optional(),
     unitPrice: z.coerce.number().min(0).optional(),
     taxRate: z.preprocess(
@@ -94,6 +95,7 @@ export async function PATCH(req: Request, { params }: Params) {
   if (d.sku !== undefined) data.sku = normalizeOptionalCode(d.sku);
   if (d.barcode !== undefined) data.barcode = normalizeOptionalCode(d.barcode);
   if (d.description !== undefined) data.description = d.description?.trim() || null;
+  if (d.kind !== undefined) data.kind = d.kind;
   if (d.quantity !== undefined) data.quantity = new Prisma.Decimal(d.quantity);
   if (d.unitPrice !== undefined) data.unitPrice = new Prisma.Decimal(d.unitPrice);
   if (d.taxRate !== undefined) data.taxRate = new Prisma.Decimal(d.taxRate);

@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { BusinessTypeOnboarding } from "@/components/business-type-onboarding";
 import { Providers } from "@/components/providers";
 
 /**
@@ -17,6 +18,7 @@ export default function AppLayout({
       <div className="flex min-w-0 flex-1 flex-col">
         <Providers>
           <main className="flex-1 p-6 md:p-8">{children}</main>
+          <BusinessTypeOnboarding />
         </Providers>
       </div>
     </div>

@@ -4,17 +4,24 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { getBusinessProfile } from "@/lib/business-profile";
 import { formatProductNameForDisplay } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 
-type Props = { searchParams: Promise<{ q?: string }> };
+type Props = {
+  searchParams: Promise<{ q?: string; kind?: string }>;
+};
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
   maximumFractionDigits: 2,
 });
+
+function kindLabel(kind: string) {
+  return kind === "raw_material" ? "Raw material" : "Finished good";
+}
 
 export default async function InventoryPage({ searchParams }: Props) {
   const user = await getSessionUser();
@@ -23,11 +30,21 @@ export default async function InventoryPage({ searchParams }: Props) {
   }
   await ensureAppUser(user);
 
-  const q = ((await searchParams).q ?? "").trim();
+  const profile = await getBusinessProfile();
+  const isManufacturer = profile?.isManufacturer ?? false;
+
+  const params = await searchParams;
+  const q = (params.q ?? "").trim();
+  const kindFilter =
+    isManufacturer &&
+    (params.kind === "finished_good" || params.kind === "raw_material")
+      ? params.kind
+      : undefined;
 
   const products = await prisma.product.findMany({
     where: {
       userId: user.id,
+      ...(kindFilter ? { kind: kindFilter } : {}),
       ...(q
         ? {
             OR: [
@@ -44,6 +61,7 @@ export default async function InventoryPage({ searchParams }: Props) {
       name: true,
       sku: true,
       barcode: true,
+      kind: true,
       quantity: true,
       unitPrice: true,
       taxRate: true,
@@ -55,7 +73,11 @@ export default async function InventoryPage({ searchParams }: Props) {
     <>
       <PageHeader
         title="Inventory"
-        description="Products you sell: stock, prices, and barcodes for quick lookup."
+        description={
+          isManufacturer
+            ? "Finished goods you sell and raw materials you consume in production."
+            : "Products you sell: stock, prices, and barcodes for quick lookup."
+        }
         actions={
           <Link
             href="/inventory/new"
@@ -73,7 +95,7 @@ export default async function InventoryPage({ searchParams }: Props) {
         <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Search
         </p>
-        <div className="flex max-w-xl flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex max-w-2xl flex-col gap-2 sm:flex-row sm:items-center">
           <input
             type="search"
             name="q"
@@ -82,6 +104,18 @@ export default async function InventoryPage({ searchParams }: Props) {
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/15"
             aria-label="Search products"
           />
+          {isManufacturer ? (
+            <select
+              name="kind"
+              defaultValue={kindFilter ?? ""}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm shadow-sm"
+              aria-label="Filter by kind"
+            >
+              <option value="">All types</option>
+              <option value="finished_good">Finished goods</option>
+              <option value="raw_material">Raw materials</option>
+            </select>
+          ) : null}
           <button
             type="submit"
             className={cn(
@@ -100,18 +134,23 @@ export default async function InventoryPage({ searchParams }: Props) {
           {products.length > 0 ? (
             <span className="ml-2 font-normal text-muted-foreground">
               ({products.length}
-              {q ? ` match${products.length === 1 ? "" : "es"}` : ""})
+              {q || kindFilter
+                ? ` match${products.length === 1 ? "" : "es"}`
+                : ""}
+              )
             </span>
           ) : null}
         </div>
         {products.length === 0 ? (
           <div className="flex flex-col items-center gap-5 px-6 py-12 text-center sm:py-14">
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-              {q
-                ? "No products match your search. Try another term or clear the search."
-                : "No products yet. Add a name, quantity, and unit price—SKU and barcode are optional."}
+              {q || kindFilter
+                ? "No products match your filters. Try another term or clear the search."
+                : isManufacturer
+                  ? "No products yet. Add finished goods and raw materials, then set a bill of materials on each finished good."
+                  : "No products yet. Add a name, quantity, and unit price—SKU and barcode are optional."}
             </p>
-            {!q ? (
+            {!q && !kindFilter ? (
               <Link
                 href="/inventory/new"
                 className={cn(
@@ -128,6 +167,9 @@ export default async function InventoryPage({ searchParams }: Props) {
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                   <th className="px-4 py-3">Product Name</th>
+                  {isManufacturer ? (
+                    <th className="px-4 py-3">Type</th>
+                  ) : null}
                   <th className="px-4 py-3">SKU</th>
                   <th className="px-4 py-3">Barcode</th>
                   <th className="px-4 py-3 text-right">Quantity</th>
@@ -155,6 +197,11 @@ export default async function InventoryPage({ searchParams }: Props) {
                         </span>
                       ) : null}
                     </td>
+                    {isManufacturer ? (
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {kindLabel(p.kind)}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-2 text-muted-foreground tabular-nums">
                       {p.sku ?? "—"}
                     </td>
