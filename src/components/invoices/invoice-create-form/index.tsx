@@ -25,6 +25,7 @@ import {
   invoiceCreateFormSchema,
   type InvoiceCreateFormValues,
 } from "@/lib/invoice-create-form-schema";
+import { resolveSupplyType, stateCodeFromGstin } from "@/lib/gst-india";
 import { computeInvoiceLines } from "@/lib/invoice-math";
 import {
   lockDocumentScroll,
@@ -39,17 +40,41 @@ import { InvoiceCustomerDialog } from "./customer-dialog";
 import { InvoiceLineItemsCard } from "./line-items-card";
 import { InvoiceMetaCard } from "./meta-card";
 import { InvoiceCreateFormNotes } from "./notes";
-import type { InvoiceCustomerSearchHit } from "./types";
+import type { InvoiceCustomerSearchHit, InvoiceGstProfile } from "./types";
+
+type InvoiceFormInitial = {
+  customerId: string;
+  issueDate: string;
+  dueDate: string;
+  lines: InvoiceCreateFormValues["lines"];
+  discountMode: InvoiceCreateFormValues["discountMode"];
+  discountValue: number;
+  notes?: string;
+  customerNotes?: string;
+};
 
 export function InvoiceCreateForm({
   defaultInvoiceNumber,
+  gstProfile,
+  mode = "create",
+  invoiceId,
+  initialCustomer,
+  initialValues,
 }: {
   defaultInvoiceNumber: string;
+  gstProfile: InvoiceGstProfile;
+  mode?: "create" | "edit";
+  invoiceId?: string;
+  initialCustomer?: InvoiceCustomerSearchHit | null;
+  initialValues?: InvoiceFormInitial;
 }) {
+  const isEdit = mode === "edit" && !!invoiceId;
   const router = useRouter();
   const customerDialogRef = useRef<HTMLDialogElement>(null);
   const [searchQ, setSearchQ] = useState("");
-  const [hits, setHits] = useState<InvoiceCustomerSearchHit[]>([]);
+  const [hits, setHits] = useState<InvoiceCustomerSearchHit[]>(
+    initialCustomer ? [initialCustomer] : [],
+  );
   const [searchOpen, setSearchOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -58,6 +83,7 @@ export function InvoiceCreateForm({
   const [newPhone, setNewPhone] = useState("");
   const [newAddress, setNewAddress] = useState("");
   const [newGst, setNewGst] = useState("");
+  const [newStateCode, setNewStateCode] = useState("");
   const [createCustomerError, setCreateCustomerError] = useState<string | null>(
     null,
   );
@@ -66,7 +92,7 @@ export function InvoiceCreateForm({
 
   const form = useForm<InvoiceCreateFormValues>({
     resolver: zodResolver(invoiceCreateFormSchema) as Resolver<InvoiceCreateFormValues>,
-    defaultValues: {
+    defaultValues: initialValues ?? {
       customerId: "",
       issueDate: todayISO(),
       dueDate: addDaysISO(30),
@@ -86,6 +112,12 @@ export function InvoiceCreateForm({
   const linesWatch = useWatch({ control: form.control, name: "lines" });
   const discountMode = useWatch({ control: form.control, name: "discountMode" });
   const discountValue = useWatch({ control: form.control, name: "discountValue" });
+  const customerId = useWatch({ control: form.control, name: "customerId" });
+
+  const selectedCustomer = useMemo(
+    () => hits.find((c) => c.id === customerId) ?? null,
+    [hits, customerId],
+  );
 
   const totals = useMemo(() => {
     const drafts = (linesWatch ?? []).map((l) => ({
@@ -94,8 +126,28 @@ export function InvoiceCreateForm({
       unitPrice: Number(l.unitPrice) || 0,
       taxRate: l.taxRate ?? 18,
     }));
-    return computeInvoiceLines(drafts, discountMode, Number(discountValue) || 0);
-  }, [linesWatch, discountMode, discountValue]);
+    const buyerState =
+      selectedCustomer?.stateCode ??
+      stateCodeFromGstin(selectedCustomer?.gstNumber);
+    return computeInvoiceLines(
+      drafts,
+      discountMode,
+      Number(discountValue) || 0,
+      {
+        gstScheme: gstProfile.gstScheme,
+        supplyType:
+          gstProfile.gstScheme === "regular"
+            ? resolveSupplyType(gstProfile.stateCode, buyerState)
+            : "none",
+      },
+    );
+  }, [
+    linesWatch,
+    discountMode,
+    discountValue,
+    gstProfile,
+    selectedCustomer,
+  ]);
 
   const fetchCustomers = useCallback(async (q: string) => {
     const res = await fetch(
@@ -105,6 +157,12 @@ export function InvoiceCreateForm({
     const data = (await res.json()) as { customers: InvoiceCustomerSearchHit[] };
     setHits(data.customers);
   }, []);
+
+  useEffect(() => {
+    if (initialCustomer) {
+      setSearchQ(initialCustomer.name);
+    }
+  }, [initialCustomer]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -122,6 +180,7 @@ export function InvoiceCreateForm({
     setNewPhone("");
     setNewAddress("");
     setNewGst("");
+    setNewStateCode("");
     lockDocumentScroll();
     el.showModal();
   }
@@ -155,6 +214,7 @@ export function InvoiceCreateForm({
           phone: newPhone.trim() || null,
           address: newAddress.trim() || null,
           gstNumber: newGst.trim() || null,
+          stateCode: newStateCode || null,
         }),
       });
       const json = (await res.json()) as {
@@ -207,8 +267,11 @@ export function InvoiceCreateForm({
 
     body.customerId = values.customerId;
 
-    const res = await fetch("/api/invoices", {
-      method: "POST",
+    const url = isEdit ? `/api/invoices/${invoiceId}` : "/api/invoices";
+    const method = isEdit ? "PATCH" : "POST";
+
+    const res = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -222,13 +285,16 @@ export function InvoiceCreateForm({
       setSubmitError(
         typeof json.error === "string"
           ? json.error
-          : "Could not create invoice. Check the form and try again.",
+          : isEdit
+            ? "Could not update invoice. Check the form and try again."
+            : "Could not create invoice. Check the form and try again.",
       );
       return;
     }
 
-    if (json.invoice?.id) {
-      router.push(`/invoices/${json.invoice.id}`);
+    const id = json.invoice?.id ?? invoiceId;
+    if (id) {
+      router.push(`/invoices/${id}`);
       router.refresh();
     }
   }
@@ -250,6 +316,7 @@ export function InvoiceCreateForm({
           <InvoiceMetaCard
             defaultInvoiceNumber={defaultInvoiceNumber}
             register={form.register}
+            isEdit={isEdit}
           />
           <InvoiceCustomerCard
             form={form}
@@ -274,6 +341,7 @@ export function InvoiceCreateForm({
             register={form.register}
             remove={remove}
             totals={totals}
+            gstProfile={gstProfile}
           />
         ) : null}
 
@@ -297,12 +365,14 @@ export function InvoiceCreateForm({
                 <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />
                 Saving…
               </>
+            ) : isEdit ? (
+              "Save changes"
             ) : (
               "Save draft"
             )}
           </Button>
           <Link
-            href="/invoices"
+            href={isEdit && invoiceId ? `/invoices/${invoiceId}` : "/invoices"}
             className={cn(
               buttonVariants({ variant: "outline", size: "default" }),
             )}
@@ -325,6 +395,8 @@ export function InvoiceCreateForm({
         setAddress={setNewAddress}
         gst={newGst}
         setGst={setNewGst}
+        stateCode={newStateCode}
+        setStateCode={setNewStateCode}
         error={createCustomerError}
         submitting={createCustomerSubmitting}
         onSubmit={onCreateCustomer}

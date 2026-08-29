@@ -81,17 +81,20 @@ Ensure `public.users.id` matches Supabase Auth user IDs. The app **upserts** a `
 | `/invoices` | Paginated list, search, filters, quick actions |
 | `/invoices/create` | Create draft invoice (line items, GST, customer search or inline create) |
 | `/invoices/[id]` | Invoice detail, line items, payments, PDF preview / download / WhatsApp / email |
-| `/invoices/[id]/edit` | Edit flow (placeholder) |
-| `/customers`, `/customers/[id]` | Customers (placeholder / list shell) |
-| `/settings` | Business profile (placeholder) |
+| `/invoices/[id]/edit` | Edit draft invoice (line items, customer, GST) |
+| `/customers`, `/customers/[id]` | Customer list, add, edit, invoice history |
+| `/settings` | Business profile, GST scheme, manufacturer vs trading |
+| `/production` | Production runs and BOM (manufacturer mode) |
 
-API routes include invoices CRUD helpers, `pdf`, `pdf-data`, `signed-pdf-url`, `email`, customers, and mark-paid.
+API routes include invoices (create, get, update, delete, issue), `pdf`, `pdf-data`, `signed-pdf-url`, `email`, customers (create, update), payments, and mark-paid.
 
 ## Deploy (e.g. Vercel)
 
 1. Set the same environment variables in the host dashboard.
-2. Run `npm run db:migrate` against production (or run migrations in CI before deploy).
-3. Build command: `npm run build` (already runs `prisma generate`).
+2. Use the Supabase **connection pooler** (`DATABASE_URL` on port **6543**) for runtime; encode special characters in the password (e.g. `@` → `%40`).
+3. Run `npm run db:migrate` against production (or run migrations in CI before deploy).
+4. Build command: `npm run build` (already runs `prisma generate`).
+5. Verify `/api/health/db` or sign-in after deploy.
 
 ## License
 

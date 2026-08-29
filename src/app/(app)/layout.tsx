@@ -1,5 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { BusinessTypeOnboarding } from "@/components/business-type-onboarding";
+import { SetupWizard } from "@/components/onboarding/setup-wizard";
 import { Providers } from "@/components/providers";
 
 /**
@@ -13,14 +13,16 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh bg-background">
-      <AppSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Providers>
-          <main className="flex-1 p-6 md:p-8">{children}</main>
-          <BusinessTypeOnboarding />
-        </Providers>
+    <>
+      <div className="flex min-h-dvh bg-background">
+        <AppSidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Providers>
+            <main className="flex-1 p-6 md:p-8">{children}</main>
+          </Providers>
+        </div>
       </div>
-    </div>
+      <SetupWizard />
+    </>
   );
 }

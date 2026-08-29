@@ -36,6 +36,7 @@ export async function GET(req: Request) {
       email: true,
       phone: true,
       gstNumber: true,
+      stateCode: true,
     },
   });
 

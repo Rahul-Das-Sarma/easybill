@@ -4,6 +4,12 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  GST_SCHEMES,
+  INDIAN_STATE_CODES,
+  stateCodeFromGstin,
+  type GstScheme,
+} from "@/lib/gst-india";
 import { cn } from "@/lib/utils";
 import { Factory, Store } from "lucide-react";
 
@@ -17,6 +23,8 @@ type SettingsData = {
   companyLogoUrl: string | null;
   invoicePrefix: string;
   businessType: BusinessType;
+  gstScheme: GstScheme;
+  stateCode: string | null;
 };
 
 export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
@@ -29,11 +37,19 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
   const [businessType, setBusinessType] = useState<BusinessType>(
     initial.businessType,
   );
+  const [gstScheme, setGstScheme] = useState<GstScheme>(initial.gstScheme);
+  const [stateCode, setStateCode] = useState(initial.stateCode ?? "");
   const [logoUrl, setLogoUrl] = useState(initial.companyLogoUrl ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  function onGstNumberChange(value: string) {
+    setGstNumber(value);
+    const fromGstin = stateCodeFromGstin(value);
+    if (fromGstin) setStateCode(fromGstin);
+  }
 
   async function saveSettings() {
     setSaving(true);
@@ -49,6 +65,8 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
           gstNumber,
           invoicePrefix,
           businessType,
+          gstScheme,
+          stateCode: stateCode || null,
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -96,7 +114,7 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
       <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-sm font-medium">Business type</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manufacturers get raw materials, bill of materials, and production.
+          Trading for retail; manufacturers get raw materials, BOM, and production.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <button
@@ -131,6 +149,68 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
               Raw materials, BOM, and production runs.
             </span>
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-sm font-medium">GST registration</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Controls how tax appears on invoices. You can change this anytime.
+        </p>
+        <div className="mt-4 space-y-3">
+          {GST_SCHEMES.map((scheme) => (
+            <button
+              key={scheme.value}
+              type="button"
+              onClick={() => setGstScheme(scheme.value)}
+              className={cn(
+                "flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors",
+                gstScheme === scheme.value
+                  ? "border-brand-500 bg-brand-50"
+                  : "border-border hover:bg-muted/50",
+              )}
+            >
+              <span className="text-sm font-semibold">{scheme.label}</span>
+              <span className="text-xs text-muted-foreground">
+                {scheme.description}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="gstNumber" className="text-xs font-medium">
+              GSTIN
+            </label>
+            <input
+              id="gstNumber"
+              value={gstNumber}
+              onChange={(e) => onGstNumberChange(e.target.value)}
+              placeholder="22AAAAA0000A1Z5"
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm uppercase outline-none ring-ring focus-visible:ring-2"
+            />
+          </div>
+          <div>
+            <label htmlFor="stateCode" className="text-xs font-medium">
+              State
+            </label>
+            <select
+              id="stateCode"
+              value={stateCode}
+              onChange={(e) => setStateCode(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
+            >
+              <option value="">Select state</option>
+              {INDIAN_STATE_CODES.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Used for CGST/SGST vs IGST on invoices.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -177,29 +257,16 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
               className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus-visible:ring-2"
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="phone" className="text-xs font-medium">
-                Phone
-              </label>
-              <input
-                id="phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
-              />
-            </div>
-            <div>
-              <label htmlFor="gstNumber" className="text-xs font-medium">
-                GST number
-              </label>
-              <input
-                id="gstNumber"
-                value={gstNumber}
-                onChange={(e) => setGstNumber(e.target.value)}
-                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
-              />
-            </div>
+          <div>
+            <label htmlFor="phone" className="text-xs font-medium">
+              Phone
+            </label>
+            <input
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
+            />
           </div>
           <div>
             <Button type="button" size="sm" onClick={() => void saveSettings()} disabled={saving}>

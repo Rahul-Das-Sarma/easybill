@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { InvoiceDetailActions } from "@/components/invoices/invoice-detail-actions";
+import { InvoiceLifecycleActions } from "@/components/invoices/invoice-lifecycle-actions";
 import { InvoicePaymentsPanel } from "@/components/invoices/invoice-payments-panel";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { COMPOSITION_DISCLAIMER } from "@/lib/gst-india";
 import {
   effectiveInvoiceStatus,
   isInvoiceOverdue,
@@ -56,6 +58,11 @@ export default async function InvoiceDetailPage({ params }: Props) {
   const outstanding =
     Number(invoice.totalAmount.toString()) -
     Number(invoice.amountPaid.toString());
+  const showGst = invoice.gstSchemeAtIssue === "regular";
+  const isInter = invoice.supplyType === "inter";
+
+  const isDraft =
+    invoice.status === "draft" && Number(invoice.amountPaid.toString()) === 0;
 
   return (
     <>
@@ -69,12 +76,23 @@ export default async function InvoiceDetailPage({ params }: Props) {
               invoiceNumber={invoice.invoiceNumber}
               customerEmail={c.email}
             />
-            <Link
-              href={`/invoices/${id}/edit`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Edit
-            </Link>
+            {isDraft ? (
+              <>
+                <InvoiceLifecycleActions
+                  invoiceId={invoice.id}
+                  status={invoice.status}
+                  amountPaid={invoice.amountPaid.toString()}
+                />
+                <Link
+                  href={`/invoices/${id}/edit`}
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                  )}
+                >
+                  Edit
+                </Link>
+              </>
+            ) : null}
           </div>
         }
       />
@@ -90,8 +108,18 @@ export default async function InvoiceDetailPage({ params }: Props) {
                     <th className="pb-2 font-medium">Product</th>
                     <th className="pb-2 text-right font-medium">Qty</th>
                     <th className="pb-2 text-right font-medium">Rate</th>
-                    <th className="pb-2 text-right font-medium">GST%</th>
-                    <th className="pb-2 text-right font-medium">Tax</th>
+                    {showGst ? (
+                      <th className="pb-2 text-right font-medium">GST%</th>
+                    ) : null}
+                    {showGst && !isInter ? (
+                      <>
+                        <th className="pb-2 text-right font-medium">CGST</th>
+                        <th className="pb-2 text-right font-medium">SGST</th>
+                      </>
+                    ) : null}
+                    {showGst && isInter ? (
+                      <th className="pb-2 text-right font-medium">IGST</th>
+                    ) : null}
                     <th className="pb-2 text-right font-medium">Total</th>
                   </tr>
                 </thead>
@@ -105,12 +133,26 @@ export default async function InvoiceDetailPage({ params }: Props) {
                       <td className="py-2 text-right tabular-nums">
                         {inr.format(Number(it.unitPrice))}
                       </td>
-                      <td className="py-2 text-right tabular-nums">
-                        {it.taxRate.toString()}%
-                      </td>
-                      <td className="py-2 text-right tabular-nums">
-                        {inr.format(Number(it.taxAmount))}
-                      </td>
+                      {showGst ? (
+                        <td className="py-2 text-right tabular-nums">
+                          {it.taxRate.toString()}%
+                        </td>
+                      ) : null}
+                      {showGst && !isInter ? (
+                        <>
+                          <td className="py-2 text-right tabular-nums">
+                            {inr.format(Number(it.cgstAmount))}
+                          </td>
+                          <td className="py-2 text-right tabular-nums">
+                            {inr.format(Number(it.sgstAmount))}
+                          </td>
+                        </>
+                      ) : null}
+                      {showGst && isInter ? (
+                        <td className="py-2 text-right tabular-nums">
+                          {inr.format(Number(it.igstAmount))}
+                        </td>
+                      ) : null}
                       <td className="py-2 text-right tabular-nums font-medium">
                         {inr.format(Number(it.total))}
                       </td>
@@ -155,7 +197,7 @@ export default async function InvoiceDetailPage({ params }: Props) {
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Subtotal</dt>
+                <dt className="text-muted-foreground">Taxable</dt>
                 <dd className="tabular-nums">
                   {inr.format(Number(invoice.subtotal))}
                 </dd>
@@ -166,12 +208,43 @@ export default async function InvoiceDetailPage({ params }: Props) {
                   − {inr.format(Number(invoice.discountAmount))}
                 </dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">GST</dt>
-                <dd className="tabular-nums">
-                  {inr.format(Number(invoice.taxAmount))}
-                </dd>
-              </div>
+              {showGst && !isInter ? (
+                <>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">CGST</dt>
+                    <dd className="tabular-nums">
+                      {inr.format(Number(invoice.cgstAmount))}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">SGST</dt>
+                    <dd className="tabular-nums">
+                      {inr.format(Number(invoice.sgstAmount))}
+                    </dd>
+                  </div>
+                </>
+              ) : null}
+              {showGst && isInter ? (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">IGST</dt>
+                  <dd className="tabular-nums">
+                    {inr.format(Number(invoice.igstAmount))}
+                  </dd>
+                </div>
+              ) : null}
+              {showGst ? (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Total GST</dt>
+                  <dd className="tabular-nums">
+                    {inr.format(Number(invoice.taxAmount))}
+                  </dd>
+                </div>
+              ) : null}
+              {invoice.gstSchemeAtIssue === "composition" ? (
+                <p className="text-xs text-muted-foreground">
+                  {COMPOSITION_DISCLAIMER}
+                </p>
+              ) : null}
               <div className="flex justify-between font-semibold">
                 <dt>Total</dt>
                 <dd className="tabular-nums">

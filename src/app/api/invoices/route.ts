@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { resolveSupplyType, stateCodeFromGstin } from "@/lib/gst-india";
 import { computeInvoiceLines } from "@/lib/invoice-math";
 import {
   effectiveInvoiceStatus,
@@ -40,6 +41,7 @@ const createBodySchema = z
         phone: z.string().optional().nullable(),
         address: z.string().optional().nullable(),
         gstNumber: z.string().optional().nullable(),
+        stateCode: z.string().max(2).optional().nullable(),
       })
       .optional()
       .nullable(),
@@ -197,6 +199,35 @@ export async function POST(req: Request) {
   }
 
   const body = parsed.data;
+
+  const seller = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { gstScheme: true, stateCode: true, gstNumber: true },
+  });
+  const gstScheme = seller?.gstScheme ?? "regular";
+
+  let customerState: string | null = null;
+  if (body.customerId) {
+    const c = await prisma.customer.findFirst({
+      where: { id: body.customerId, userId: user.id },
+      select: { stateCode: true, gstNumber: true },
+    });
+    customerState =
+      c?.stateCode ?? stateCodeFromGstin(c?.gstNumber) ?? null;
+  } else if (body.newCustomer) {
+    customerState =
+      body.newCustomer.stateCode?.trim() ||
+      stateCodeFromGstin(body.newCustomer.gstNumber) ||
+      null;
+  }
+
+  const sellerState =
+    seller?.stateCode ?? stateCodeFromGstin(seller?.gstNumber) ?? null;
+  const supplyType =
+    gstScheme === "regular"
+      ? resolveSupplyType(sellerState, customerState)
+      : "none";
+
   const breakdown = computeInvoiceLines(
     body.lines.map((l) => ({
       productName: l.productName.trim(),
@@ -206,6 +237,7 @@ export async function POST(req: Request) {
     })),
     body.discountMode,
     body.discountValue,
+    { gstScheme, supplyType },
   );
 
   if (breakdown.preDiscountSubtotal <= 0) {
@@ -215,8 +247,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const { items: lineItems, subtotal, discountAmount, taxAmount, totalAmount } =
-    breakdown;
+  const {
+    items: lineItems,
+    subtotal,
+    discountAmount,
+    taxAmount,
+    cgstAmount,
+    sgstAmount,
+    igstAmount,
+    totalAmount,
+  } = breakdown;
 
   try {
     const invoice = await prisma.$transaction(async (tx) => {
@@ -259,6 +299,10 @@ export async function POST(req: Request) {
             phone,
             address: nc.address?.trim() || null,
             gstNumber: nc.gstNumber?.trim() || null,
+            stateCode:
+              nc.stateCode?.trim() ||
+              stateCodeFromGstin(nc.gstNumber) ||
+              null,
           },
         });
         customerId = c.id;
@@ -286,9 +330,14 @@ export async function POST(req: Request) {
           subtotal: new Prisma.Decimal(subtotal.toFixed(2)),
           discountAmount: new Prisma.Decimal(discountAmount.toFixed(2)),
           taxAmount: new Prisma.Decimal(taxAmount.toFixed(2)),
+          cgstAmount: new Prisma.Decimal(cgstAmount.toFixed(2)),
+          sgstAmount: new Prisma.Decimal(sgstAmount.toFixed(2)),
+          igstAmount: new Prisma.Decimal(igstAmount.toFixed(2)),
           totalAmount: new Prisma.Decimal(totalAmount.toFixed(2)),
           amountPaid: new Prisma.Decimal("0"),
           currency: "INR",
+          gstSchemeAtIssue: gstScheme,
+          supplyType,
           issueDate: new Date(`${body.issueDate}T12:00:00.000Z`),
           dueDate: new Date(`${body.dueDate}T12:00:00.000Z`),
           notes: body.notes?.trim() || null,
@@ -300,6 +349,9 @@ export async function POST(req: Request) {
               unitPrice: new Prisma.Decimal(row.unitPrice.toFixed(2)),
               taxRate: new Prisma.Decimal(row.taxRate.toFixed(2)),
               taxAmount: new Prisma.Decimal(row.taxAmount.toFixed(2)),
+              cgstAmount: new Prisma.Decimal(row.cgstAmount.toFixed(2)),
+              sgstAmount: new Prisma.Decimal(row.sgstAmount.toFixed(2)),
+              igstAmount: new Prisma.Decimal(row.igstAmount.toFixed(2)),
               total: new Prisma.Decimal(row.lineTotal.toFixed(2)),
               sortOrder: row.sortOrder,
             })),

@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { getNextInvoiceNumber } from "@/lib/next-invoice-number";
+import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -14,7 +15,22 @@ export default async function CreateInvoicePage() {
     redirect("/login");
   }
   await ensureAppUser(user);
-  const defaultInvoiceNumber = await getNextInvoiceNumber(user.id);
+  const [defaultInvoiceNumber, gstRow] = await Promise.all([
+    getNextInvoiceNumber(user.id),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { gstScheme: true, stateCode: true, gstNumber: true },
+    }),
+  ]);
+
+  const gstProfile = {
+    gstScheme: (gstRow?.gstScheme ?? "regular") as
+      | "regular"
+      | "composition"
+      | "unregistered",
+    stateCode: gstRow?.stateCode ?? null,
+    gstNumber: gstRow?.gstNumber ?? null,
+  };
 
   return (
     <>
@@ -30,7 +46,10 @@ export default async function CreateInvoicePage() {
           </Link>
         }
       />
-      <InvoiceCreateForm defaultInvoiceNumber={defaultInvoiceNumber} />
+      <InvoiceCreateForm
+        defaultInvoiceNumber={defaultInvoiceNumber}
+        gstProfile={gstProfile}
+      />
     </>
   );
 }

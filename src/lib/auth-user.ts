@@ -1,3 +1,4 @@
+import { Prisma } from "@/generated/prisma/client";
 import { cache } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -17,11 +18,7 @@ export const getSessionUser = cache(async () => {
   return session?.user ?? null;
 });
 
-/**
- * Ensure a `public.users` row exists. Hot path is a single insert that
- * no-ops when the row already exists (no prior SELECT on every navigation).
- */
-export const ensureAppUser = cache(async (user: SupabaseUser) => {
+function buildNewUserData(user: SupabaseUser) {
   const email = user.email ?? `${user.id}@users.invalid`;
   const meta = user.user_metadata as Record<string, unknown> | undefined;
   const name =
@@ -35,18 +32,71 @@ export const ensureAppUser = cache(async (user: SupabaseUser) => {
   const address =
     (typeof meta?.address === "string" && meta.address) || "—";
 
-  await prisma.user.createMany({
-    data: [
-      {
+  return {
+    email,
+    name,
+    companyName,
+    invoicePrefix: "INV",
+    address,
+  };
+}
+
+async function createAppUserIfMissing(user: SupabaseUser) {
+  try {
+    await prisma.user.create({
+      data: {
         id: user.id,
-        email,
-        name,
-        companyName,
-        invoicePrefix: "INV",
-        address,
+        ...buildNewUserData(user),
       },
-    ],
-    skipDuplicates: true,
+    });
+  } catch (e) {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
+      return;
+    }
+    throw e;
+  }
+}
+
+/**
+ * Ensure a `public.users` row exists. Existing users: one cheap SELECT.
+ * New users only: INSERT (no createMany on every navigation).
+ */
+export const ensureAppUser = cache(async (user: SupabaseUser) => {
+  const existing = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true },
+  });
+  if (existing) return;
+  await createAppUserIfMissing(user);
+});
+
+const settingsProfileSelect = {
+  companyName: true,
+  address: true,
+  phone: true,
+  gstNumber: true,
+  companyLogoUrl: true,
+  invoicePrefix: true,
+  businessType: true,
+  gstScheme: true,
+  stateCode: true,
+} as const;
+
+/** Settings page: one SELECT for existing users; create only when missing. */
+export const getUserSettingsProfile = cache(async (user: SupabaseUser) => {
+  const profile = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: settingsProfileSelect,
+  });
+  if (profile) return profile;
+
+  await createAppUserIfMissing(user);
+  return prisma.user.findUnique({
+    where: { id: user.id },
+    select: settingsProfileSelect,
   });
 });
 

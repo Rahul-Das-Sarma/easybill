@@ -3,6 +3,7 @@
 import type { FormEvent, RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
+import { INDIAN_STATE_CODES, stateCodeFromGstin } from "@/lib/gst-india";
 import { Loader2 } from "lucide-react";
 
 type Props = {
@@ -18,6 +19,8 @@ type Props = {
   setAddress: (v: string) => void;
   gst: string;
   setGst: (v: string) => void;
+  stateCode: string;
+  setStateCode: (v: string) => void;
   error: string | null;
   submitting: boolean;
   onSubmit: (e: FormEvent) => void | Promise<void>;
@@ -36,10 +39,18 @@ export function InvoiceCustomerDialog({
   setAddress,
   gst,
   setGst,
+  stateCode,
+  setStateCode,
   error,
   submitting,
   onSubmit,
 }: Props) {
+  function onGstChange(value: string) {
+    setGst(value);
+    const fromGstin = stateCodeFromGstin(value);
+    if (fromGstin) setStateCode(fromGstin);
+  }
+
   return (
     <dialog
       ref={dialogRef}
@@ -121,16 +132,36 @@ export function InvoiceCustomerDialog({
               onChange={(e) => setAddress(e.target.value)}
             />
           </div>
-          <div>
-            <label htmlFor="new-customer-gst" className="text-xs font-medium">
-              GSTIN
-            </label>
-            <input
-              id="new-customer-gst"
-              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
-              value={gst}
-              onChange={(e) => setGst(e.target.value)}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="new-customer-gst" className="text-xs font-medium">
+                GSTIN
+              </label>
+              <input
+                id="new-customer-gst"
+                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm uppercase"
+                value={gst}
+                onChange={(e) => onGstChange(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="new-customer-state" className="text-xs font-medium">
+                State
+              </label>
+              <select
+                id="new-customer-state"
+                value={stateCode}
+                onChange={(e) => setStateCode(e.target.value)}
+                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Select state</option>
+                {INDIAN_STATE_CODES.map((s) => (
+                  <option key={s.code} value={s.code}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           {error ? (
             <p className="text-sm text-destructive" role="alert">

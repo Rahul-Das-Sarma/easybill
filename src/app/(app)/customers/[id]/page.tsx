@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { CustomerEditCard } from "@/components/customers/customer-edit-card";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn, invoiceStatusTextClass } from "@/lib/utils";
@@ -31,6 +32,7 @@ export default async function CustomerDetailPage({ params }: Props) {
       phone: true,
       address: true,
       gstNumber: true,
+      stateCode: true,
     },
   });
 
@@ -87,31 +89,7 @@ export default async function CustomerDetailPage({ params }: Props) {
         }
       />
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm lg:col-span-1">
-          <h2 className="text-sm font-medium">Details</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Name</dt>
-              <dd className="font-medium">{customer.name}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Email</dt>
-              <dd className="text-right">{customer.email ?? "—"}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Phone</dt>
-              <dd className="text-right">{customer.phone ?? "—"}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Address</dt>
-              <dd className="text-right">{customer.address ?? "—"}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">GSTIN</dt>
-              <dd className="text-right">{customer.gstNumber ?? "—"}</dd>
-            </div>
-          </dl>
-        </div>
+        <CustomerEditCard customer={customer} />
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm lg:col-span-2">
           <h2 className="text-sm font-medium">Invoice history</h2>
           <p className="mt-2 text-sm text-muted-foreground">

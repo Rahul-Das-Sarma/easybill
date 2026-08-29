@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { stateCodeFromGstin } from "@/lib/gst-india";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -13,6 +14,7 @@ const bodySchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   gstNumber: z.string().optional().nullable(),
+  stateCode: z.string().max(2).optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -81,6 +83,10 @@ export async function POST(req: Request) {
       phone: parsed.data.phone?.trim() || null,
       address: parsed.data.address?.trim() || null,
       gstNumber: parsed.data.gstNumber?.trim() || null,
+      stateCode:
+        parsed.data.stateCode?.trim() ||
+        stateCodeFromGstin(parsed.data.gstNumber) ||
+        null,
     },
     select: {
       id: true,
@@ -88,6 +94,7 @@ export async function POST(req: Request) {
       email: true,
       phone: true,
       gstNumber: true,
+      stateCode: true,
     },
   });
 

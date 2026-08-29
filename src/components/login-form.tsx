@@ -22,6 +22,7 @@ export function LoginForm() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(urlError);
   const [info, setInfo] = useState<string | null>(null);
@@ -75,6 +76,9 @@ export function LoginForm() {
           password,
           options: {
             emailRedirectTo: authRedirectTo("/auth/callback"),
+            data: companyName.trim()
+              ? { company_name: companyName.trim() }
+              : undefined,
           },
         });
         if (err) {
@@ -133,6 +137,23 @@ export function LoginForm() {
           Sign up
         </button>
       </div>
+      {mode === "signup" ? (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="companyName" className="text-sm font-medium">
+            Company name <span className="text-muted-foreground">(optional)</span>
+          </label>
+          <input
+            id="companyName"
+            name="companyName"
+            type="text"
+            autoComplete="organization"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Your business name"
+            className="h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2">
         <label htmlFor="email" className="text-sm font-medium">
           Email

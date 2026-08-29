@@ -7,9 +7,14 @@ import type { InvoiceCreateFormValues } from "@/lib/invoice-create-form-schema";
 type Props = {
   defaultInvoiceNumber: string;
   register: UseFormRegister<InvoiceCreateFormValues>;
+  isEdit?: boolean;
 };
 
-export function InvoiceMetaCard({ defaultInvoiceNumber, register }: Props) {
+export function InvoiceMetaCard({
+  defaultInvoiceNumber,
+  register,
+  isEdit = false,
+}: Props) {
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-5 shadow-sm">
       <h2 className="text-sm font-medium">Invoice</h2>
@@ -22,9 +27,11 @@ export function InvoiceMetaCard({ defaultInvoiceNumber, register }: Props) {
           value={defaultInvoiceNumber}
           className="mt-1 h-9 w-full rounded-lg border border-input bg-muted/50 px-3 text-sm"
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Final number is assigned when you save (per year, unique for you).
-        </p>
+        {!isEdit ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Final number is assigned when you save (per year, unique for you).
+          </p>
+        ) : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

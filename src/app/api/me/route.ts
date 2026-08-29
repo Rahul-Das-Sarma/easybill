@@ -21,6 +21,7 @@ export async function GET() {
     select: {
       businessType: true,
       businessTypeChosen: true,
+      onboardingCompleted: true,
       companyName: true,
     },
   });
@@ -32,6 +33,7 @@ export async function GET() {
   return NextResponse.json({
     businessType: row.businessType,
     businessTypeChosen: row.businessTypeChosen,
+    onboardingCompleted: row.onboardingCompleted,
     isManufacturer: row.businessType === "manufacturer",
     companyName: row.companyName,
   });

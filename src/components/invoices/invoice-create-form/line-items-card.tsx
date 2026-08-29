@@ -4,9 +4,12 @@ import type { FieldArrayWithId, UseFormRegister } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { formatInr } from "@/lib/format-inr";
-import { computeInvoiceLines, GST_RATES } from "@/lib/invoice-math";
+import { COMPOSITION_DISCLAIMER } from "@/lib/gst-india";
+import { computeInvoiceLines } from "@/lib/invoice-math";
 import type { InvoiceCreateFormValues } from "@/lib/invoice-create-form-schema";
 import { Trash2 } from "lucide-react";
+
+import type { InvoiceGstProfile } from "./types";
 
 type Totals = ReturnType<typeof computeInvoiceLines>;
 
@@ -15,6 +18,7 @@ type Props = {
   register: UseFormRegister<InvoiceCreateFormValues>;
   remove: (index: number) => void;
   totals: Totals;
+  gstProfile: InvoiceGstProfile;
 };
 
 export function InvoiceLineItemsCard({
@@ -22,13 +26,23 @@ export function InvoiceLineItemsCard({
   register,
   remove,
   totals,
+  gstProfile,
 }: Props) {
+  const showGst = gstProfile.gstScheme === "regular";
+  const isInter = totals.supplyType === "inter";
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div>
         <h2 className="text-sm font-medium">Line items</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Edit or remove rows. Every line needs a product name before you save.
+          {gstProfile.gstScheme === "composition"
+            ? "Composition scheme — taxable value only, no GST collected."
+            : gstProfile.gstScheme === "unregistered"
+              ? "Unregistered — simple bill without GST."
+              : isInter
+                ? "Inter-state supply — IGST applies."
+                : "Intra-state supply — CGST + SGST applies."}
         </p>
       </div>
 
@@ -39,8 +53,18 @@ export function InvoiceLineItemsCard({
               <th className="pb-2 pr-2 font-medium">Product</th>
               <th className="pb-2 pr-2 font-medium">Qty</th>
               <th className="pb-2 pr-2 font-medium">Unit (₹)</th>
-              <th className="pb-2 pr-2 font-medium">GST %</th>
-              <th className="pb-2 pr-2 text-right font-medium">Tax</th>
+              {showGst ? (
+                <th className="pb-2 pr-2 font-medium">GST %</th>
+              ) : null}
+              {showGst && !isInter ? (
+                <>
+                  <th className="pb-2 pr-2 text-right font-medium">CGST</th>
+                  <th className="pb-2 pr-2 text-right font-medium">SGST</th>
+                </>
+              ) : null}
+              {showGst && isInter ? (
+                <th className="pb-2 pr-2 text-right font-medium">IGST</th>
+              ) : null}
               <th className="pb-2 pl-2 text-right font-medium">Line</th>
               <th className="w-10 pb-2" />
             </tr>
@@ -80,23 +104,37 @@ export function InvoiceLineItemsCard({
                       })}
                     />
                   </td>
-                  <td className="py-2 pr-2 align-top">
-                    <select
-                      className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
-                      {...register(`lines.${index}.taxRate`, {
-                        valueAsNumber: true,
-                      })}
-                    >
-                      {GST_RATES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}%
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2 pr-2 text-right align-top tabular-nums text-muted-foreground">
-                    {row ? formatInr.format(row.taxAmount) : "—"}
-                  </td>
+                  {showGst ? (
+                    <td className="py-2 pr-2 align-top">
+                      <select
+                        className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
+                        {...register(`lines.${index}.taxRate`, {
+                          valueAsNumber: true,
+                        })}
+                      >
+                        {[0, 5, 12, 18, 28].map((r) => (
+                          <option key={r} value={r}>
+                            {r}%
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  ) : null}
+                  {showGst && !isInter ? (
+                    <>
+                      <td className="py-2 pr-2 text-right align-top tabular-nums text-muted-foreground">
+                        {row ? formatInr.format(row.cgstAmount) : "—"}
+                      </td>
+                      <td className="py-2 pr-2 text-right align-top tabular-nums text-muted-foreground">
+                        {row ? formatInr.format(row.sgstAmount) : "—"}
+                      </td>
+                    </>
+                  ) : null}
+                  {showGst && isInter ? (
+                    <td className="py-2 pr-2 text-right align-top tabular-nums text-muted-foreground">
+                      {row ? formatInr.format(row.igstAmount) : "—"}
+                    </td>
+                  ) : null}
                   <td className="py-2 pl-2 text-right align-top tabular-nums font-medium">
                     {row ? formatInr.format(row.lineTotal) : "—"}
                   </td>
@@ -157,15 +195,44 @@ export function InvoiceLineItemsCard({
             <dd className="text-right tabular-nums font-medium">
               {formatInr.format(totals.subtotal)}
             </dd>
-            <dt className="text-muted-foreground">Total GST</dt>
-            <dd className="text-right tabular-nums">
-              {formatInr.format(totals.taxAmount)}
-            </dd>
+            {showGst && !isInter ? (
+              <>
+                <dt className="text-muted-foreground">CGST</dt>
+                <dd className="text-right tabular-nums">
+                  {formatInr.format(totals.cgstAmount)}
+                </dd>
+                <dt className="text-muted-foreground">SGST</dt>
+                <dd className="text-right tabular-nums">
+                  {formatInr.format(totals.sgstAmount)}
+                </dd>
+              </>
+            ) : null}
+            {showGst && isInter ? (
+              <>
+                <dt className="text-muted-foreground">IGST</dt>
+                <dd className="text-right tabular-nums">
+                  {formatInr.format(totals.igstAmount)}
+                </dd>
+              </>
+            ) : null}
+            {showGst ? (
+              <>
+                <dt className="text-muted-foreground">Total GST</dt>
+                <dd className="text-right tabular-nums">
+                  {formatInr.format(totals.taxAmount)}
+                </dd>
+              </>
+            ) : null}
             <dt className="font-medium">Total</dt>
             <dd className="text-right text-lg font-semibold tabular-nums">
               {formatInr.format(totals.totalAmount)}
             </dd>
           </dl>
+          {gstProfile.gstScheme === "composition" ? (
+            <p className="mt-3 max-w-sm text-xs text-muted-foreground">
+              {COMPOSITION_DISCLAIMER}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

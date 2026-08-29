@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AddCustomerButton } from "@/components/customers/add-customer-button";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
@@ -47,6 +48,7 @@ export default async function CustomersPage({ searchParams }: Props) {
       <PageHeader
         title="Customers"
         description="Customers created here or when you add one on a new invoice."
+        actions={<AddCustomerButton />}
       />
 
       <form method="get" className="mb-6 flex max-w-md flex-col gap-2 sm:flex-row sm:items-center">
@@ -80,7 +82,7 @@ export default async function CustomersPage({ searchParams }: Props) {
           <div className="p-8 text-center text-sm text-muted-foreground">
             {q
               ? "No customers match your search."
-              : "No customers yet. Create an invoice and add a new customer, or add customers from your workflow when that’s available."}
+              : "No customers yet. Add your first customer or create an invoice and add one there."}
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,6 @@ export function InvoicesList() {
   const [page, setPage] = useState(1);
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -93,32 +92,6 @@ export function InvoicesList() {
     },
   });
 
-  const toggleOne = useCallback((id: string, checked: boolean) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }, []);
-
-  const toggleAllPage = useCallback(
-    (checked: boolean) => {
-      const ids = data?.items.map((i) => i.id) ?? [];
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (checked) ids.forEach((id) => next.add(id));
-        else ids.forEach((id) => next.delete(id));
-        return next;
-      });
-    },
-    [data?.items],
-  );
-
-  const pageIds = data?.items.map((i) => i.id) ?? [];
-  const allPageSelected =
-    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-
   return (
     <>
       <PageHeader
@@ -140,15 +113,9 @@ export function InvoicesList() {
           onChange={(e) => setQInput(e.target.value)}
           aria-label="Search invoices"
         />
-        {selected.size > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {selected.size} selected — bulk actions coming soon
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            Newest first · {data?.total ?? "—"} total
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">
+          Newest first · {data?.total ?? "—"} total
+        </p>
       </div>
 
       <div
@@ -189,15 +156,6 @@ export function InvoicesList() {
           <table className="w-full min-w-[800px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-xs font-medium text-muted-foreground">
-                <th className="w-10 px-3 py-3">
-                  <input
-                    type="checkbox"
-                    className="size-4 rounded border-input"
-                    checked={allPageSelected}
-                    onChange={(e) => toggleAllPage(e.target.checked)}
-                    aria-label="Select all on this page"
-                  />
-                </th>
                 <th className="px-3 py-3">Invoice</th>
                 <th className="px-3 py-3">Customer</th>
                 <th className="px-3 py-3">Status</th>
@@ -210,13 +168,13 @@ export function InvoicesList() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
               ) : !data?.items.length ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
                     No invoices match. Create one or adjust filters.
                   </td>
                 </tr>
@@ -225,15 +183,6 @@ export function InvoicesList() {
                   const badgeStatus = inv.displayStatus ?? inv.status;
                   return (
                   <tr key={inv.id} className="border-b border-border/80">
-                    <td className="px-3 py-2">
-                      <input
-                        type="checkbox"
-                        className="size-4 rounded border-input"
-                        checked={selected.has(inv.id)}
-                        onChange={(e) => toggleOne(inv.id, e.target.checked)}
-                        aria-label={`Select ${inv.invoiceNumber}`}
-                      />
-                    </td>
                     <td className="px-3 py-2 font-medium tabular-nums">
                       {inv.invoiceNumber}
                     </td>

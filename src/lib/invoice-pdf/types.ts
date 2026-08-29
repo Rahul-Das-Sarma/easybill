@@ -26,9 +26,14 @@ export type InvoicePdfPayload = {
     subtotal: string;
     discountAmount: string;
     taxAmount: string;
+    cgstAmount: string;
+    sgstAmount: string;
+    igstAmount: string;
     totalAmount: string;
     amountPaid: string;
     currency: string;
+    gstSchemeAtIssue: "regular" | "composition" | "unregistered";
+    supplyType: "intra" | "inter" | "none";
   };
   items: Array<{
     productName: string;
@@ -36,6 +41,9 @@ export type InvoicePdfPayload = {
     unitPrice: string;
     taxRate: string;
     taxAmount: string;
+    cgstAmount: string;
+    sgstAmount: string;
+    igstAmount: string;
     total: string;
     sortOrder: number;
   }>;

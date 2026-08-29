@@ -12,12 +12,19 @@ export type BusinessProfile = {
 export const getBusinessProfile = cache(async (): Promise<BusinessProfile | null> => {
   const user = await getSessionUser();
   if (!user) return null;
-  await ensureAppUser(user);
 
-  const row = await prisma.user.findUnique({
+  let row = await prisma.user.findUnique({
     where: { id: user.id },
     select: { businessType: true, businessTypeChosen: true },
   });
+
+  if (!row) {
+    await ensureAppUser(user);
+    row = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { businessType: true, businessTypeChosen: true },
+    });
+  }
 
   if (!row) return null;
 

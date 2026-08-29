@@ -8,6 +8,10 @@ import {
 } from "@react-pdf/renderer";
 
 import type { InvoicePdfPayload } from "@/lib/invoice-pdf/types";
+import {
+  COMPOSITION_DISCLAIMER,
+  invoiceTitleForScheme,
+} from "@/lib/gst-india";
 
 const styles = StyleSheet.create({
   page: {
@@ -99,6 +103,9 @@ export function InvoicePdfDocument({ data }: { data: InvoicePdfPayload }) {
   const logoOk = Boolean(
     business.logoUrl?.startsWith("http"),
   );
+  const showGst = invoice.gstSchemeAtIssue === "regular";
+  const isInter = invoice.supplyType === "inter";
+  const docTitle = invoiceTitleForScheme(invoice.gstSchemeAtIssue);
 
   return (
     <Document>
@@ -118,7 +125,7 @@ export function InvoicePdfDocument({ data }: { data: InvoicePdfPayload }) {
             </Text>
           </View>
           <View style={styles.meta}>
-            <Text style={styles.metaStrong}>Tax invoice</Text>
+            <Text style={styles.metaStrong}>{docTitle}</Text>
             <Text>{invoice.invoiceNumber}</Text>
             <Text>Issue: {invoice.issueDate}</Text>
             <Text>Due: {invoice.dueDate}</Text>
@@ -143,14 +150,30 @@ export function InvoicePdfDocument({ data }: { data: InvoicePdfPayload }) {
           ) : null}
         </View>
 
+        {invoice.gstSchemeAtIssue === "composition" ? (
+          <Text style={[styles.muted, { marginBottom: 8 }]}>
+            {COMPOSITION_DISCLAIMER}
+          </Text>
+        ) : null}
+
         <Text style={styles.h2}>Line items</Text>
         <View style={styles.table}>
           <View style={styles.th}>
             <Text style={[styles.colDesc, styles.thText]}>Description</Text>
             <Text style={[styles.colNum, styles.thText]}>Qty</Text>
             <Text style={[styles.colNum, styles.thText]}>Rate</Text>
-            <Text style={[styles.colNum, styles.thText]}>GST%</Text>
-            <Text style={[styles.colNum, styles.thText]}>GST</Text>
+            {showGst ? (
+              <Text style={[styles.colNum, styles.thText]}>GST%</Text>
+            ) : null}
+            {showGst && !isInter ? (
+              <>
+                <Text style={[styles.colNum, styles.thText]}>CGST</Text>
+                <Text style={[styles.colNum, styles.thText]}>SGST</Text>
+              </>
+            ) : null}
+            {showGst && isInter ? (
+              <Text style={[styles.colNum, styles.thText]}>IGST</Text>
+            ) : null}
             <Text style={[styles.colNum, styles.thText]}>Total</Text>
           </View>
           {items.map((it) => (
@@ -158,8 +181,18 @@ export function InvoicePdfDocument({ data }: { data: InvoicePdfPayload }) {
               <Text style={styles.colDesc}>{it.productName}</Text>
               <Text style={styles.colNum}>{it.quantity}</Text>
               <Text style={styles.colNum}>{fmtInr(it.unitPrice)}</Text>
-              <Text style={styles.colNum}>{it.taxRate}%</Text>
-              <Text style={styles.colNum}>{fmtInr(it.taxAmount)}</Text>
+              {showGst ? (
+                <Text style={styles.colNum}>{it.taxRate}%</Text>
+              ) : null}
+              {showGst && !isInter ? (
+                <>
+                  <Text style={styles.colNum}>{fmtInr(it.cgstAmount)}</Text>
+                  <Text style={styles.colNum}>{fmtInr(it.sgstAmount)}</Text>
+                </>
+              ) : null}
+              {showGst && isInter ? (
+                <Text style={styles.colNum}>{fmtInr(it.igstAmount)}</Text>
+              ) : null}
               <Text style={styles.colNum}>{fmtInr(it.total)}</Text>
             </View>
           ))}
@@ -174,10 +207,30 @@ export function InvoicePdfDocument({ data }: { data: InvoicePdfPayload }) {
             <Text>Discount</Text>
             <Text>− {fmtInr(invoice.discountAmount)}</Text>
           </View>
-          <View style={styles.totalRow}>
-            <Text>Total GST</Text>
-            <Text>{fmtInr(invoice.taxAmount)}</Text>
-          </View>
+          {showGst && !isInter ? (
+            <>
+              <View style={styles.totalRow}>
+                <Text>CGST</Text>
+                <Text>{fmtInr(invoice.cgstAmount)}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text>SGST</Text>
+                <Text>{fmtInr(invoice.sgstAmount)}</Text>
+              </View>
+            </>
+          ) : null}
+          {showGst && isInter ? (
+            <View style={styles.totalRow}>
+              <Text>IGST</Text>
+              <Text>{fmtInr(invoice.igstAmount)}</Text>
+            </View>
+          ) : null}
+          {showGst ? (
+            <View style={styles.totalRow}>
+              <Text>Total GST</Text>
+              <Text>{fmtInr(invoice.taxAmount)}</Text>
+            </View>
+          ) : null}
           <View style={[styles.totalRow, styles.grand]}>
             <Text style={{ fontWeight: "bold" }}>Total</Text>
             <Text style={{ fontWeight: "bold" }}>{fmtInr(invoice.totalAmount)}</Text>

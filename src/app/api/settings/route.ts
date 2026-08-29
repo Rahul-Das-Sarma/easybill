@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { stateCodeFromGstin } from "@/lib/gst-india";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
@@ -15,6 +16,8 @@ const bodySchema = z.object({
     .max(12)
     .regex(/^[A-Za-z0-9-]+$/),
   businessType: z.enum(["trading", "manufacturer"]).optional(),
+  gstScheme: z.enum(["regular", "composition", "unregistered"]).optional(),
+  stateCode: z.string().max(2).optional().nullable(),
 });
 
 function settingsSelect() {
@@ -27,6 +30,8 @@ function settingsSelect() {
     invoicePrefix: true,
     businessType: true,
     businessTypeChosen: true,
+    gstScheme: true,
+    stateCode: true,
   } as const;
 }
 
@@ -77,6 +82,12 @@ export async function PATCH(req: Request) {
   }
 
   const body = parsed.data;
+  const gstNumber = body.gstNumber?.trim() || null;
+  const stateFromGstin = stateCodeFromGstin(gstNumber);
+  const stateCode =
+    body.stateCode?.trim() ||
+    stateFromGstin ||
+    null;
 
   const updated = await prisma.user.update({
     where: { id: user.id },
@@ -84,12 +95,15 @@ export async function PATCH(req: Request) {
       companyName: body.companyName.trim(),
       address: body.address.trim(),
       phone: body.phone?.trim() || null,
-      gstNumber: body.gstNumber?.trim() || null,
+      gstNumber,
       invoicePrefix: body.invoicePrefix.trim().toUpperCase(),
+      stateCode,
+      ...(body.gstScheme ? { gstScheme: body.gstScheme } : {}),
       ...(body.businessType
         ? {
             businessType: body.businessType,
             businessTypeChosen: true,
+            onboardingCompleted: true,
           }
         : {}),
     },

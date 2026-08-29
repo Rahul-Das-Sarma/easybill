@@ -2,28 +2,15 @@ import { redirect } from "next/navigation";
 
 import { BusinessSettingsForm } from "@/components/settings/business-settings-form";
 import { PageHeader } from "@/components/page-header";
-import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
-import { prisma } from "@/lib/prisma";
+import { getSessionUser, getUserSettingsProfile } from "@/lib/auth-user";
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!user) {
     redirect("/login");
   }
-  await ensureAppUser(user);
 
-  const profile = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: {
-      companyName: true,
-      address: true,
-      phone: true,
-      gstNumber: true,
-      companyLogoUrl: true,
-      invoicePrefix: true,
-      businessType: true,
-    },
-  });
+  const profile = await getUserSettingsProfile(user);
 
   if (!profile) {
     redirect("/dashboard");
@@ -33,7 +20,7 @@ export default async function SettingsPage() {
     <>
       <PageHeader
         title="Business settings"
-        description="Profile shown on invoices: name, company, GSTIN, address, logo. Choose trading or manufacturer for inventory tools."
+        description="Business type, GST registration, and invoice profile. Changes apply to new invoices."
       />
       <BusinessSettingsForm initial={profile} />
     </>

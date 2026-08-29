@@ -1,4 +1,8 @@
 import type { InvoicePdfPayload } from "./types";
+import {
+  COMPOSITION_DISCLAIMER,
+  invoiceTitleForScheme,
+} from "@/lib/gst-india";
 
 function esc(s: string) {
   return s
@@ -20,6 +24,9 @@ function fmtInr(n: string) {
 
 export function buildInvoiceHtml(data: InvoicePdfPayload): string {
   const { business, customer, invoice, items, plan } = data;
+  const showGst = invoice.gstSchemeAtIssue === "regular";
+  const isInter = invoice.supplyType === "inter";
+  const docTitle = invoiceTitleForScheme(invoice.gstSchemeAtIssue);
   const logoSrc =
     business.logoUrl && business.logoUrl.startsWith("http")
       ? business.logoUrl
@@ -36,19 +43,47 @@ export function buildInvoiceHtml(data: InvoicePdfPayload): string {
         ? `<div class="footer-brand">${logoTag}</div>`
         : "";
 
+  const compositionNote =
+    invoice.gstSchemeAtIssue === "composition"
+      ? `<p class="muted">${esc(COMPOSITION_DISCLAIMER)}</p>`
+      : "";
+
+  const taxHeaders = showGst
+    ? `<th class="num">GST%</th>${
+        isInter
+          ? `<th class="num">IGST</th>`
+          : `<th class="num">CGST</th><th class="num">SGST</th>`
+      }`
+    : "";
+
   const rows = items
-    .map(
-      (it) => `
+    .map((it) => {
+      const taxCells = showGst
+        ? `<td class="num">${esc(it.taxRate)}%</td>${
+            isInter
+              ? `<td class="num">${fmtInr(it.igstAmount)}</td>`
+              : `<td class="num">${fmtInr(it.cgstAmount)}</td><td class="num">${fmtInr(it.sgstAmount)}</td>`
+          }`
+        : "";
+      return `
     <tr>
       <td>${esc(it.productName)}</td>
       <td class="num">${esc(it.quantity)}</td>
       <td class="num">${fmtInr(it.unitPrice)}</td>
-      <td class="num">${esc(it.taxRate)}%</td>
-      <td class="num">${fmtInr(it.taxAmount)}</td>
+      ${taxCells}
       <td class="num">${fmtInr(it.total)}</td>
-    </tr>`,
-    )
+    </tr>`;
+    })
     .join("");
+
+  const taxTotals = showGst
+    ? isInter
+      ? `<tr><td>IGST</td><td class="num">${fmtInr(invoice.igstAmount)}</td></tr>
+         <tr><td>Total GST</td><td class="num">${fmtInr(invoice.taxAmount)}</td></tr>`
+      : `<tr><td>CGST</td><td class="num">${fmtInr(invoice.cgstAmount)}</td></tr>
+         <tr><td>SGST</td><td class="num">${fmtInr(invoice.sgstAmount)}</td></tr>
+         <tr><td>Total GST</td><td class="num">${fmtInr(invoice.taxAmount)}</td></tr>`
+    : "";
 
   const customerNotesBlock = invoice.customerNotes
     ? `<section class="notes"><h3>Terms &amp; notes</h3><p>${esc(invoice.customerNotes).replaceAll("\n", "<br/>")}</p></section>`
@@ -80,6 +115,7 @@ export function buildInvoiceHtml(data: InvoicePdfPayload): string {
     .notes { margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 6px; font-size: 10px; }
     .footer { position: fixed; bottom: 12px; left: 24px; right: 24px; text-align: center; font-size: 9px; color: #888; border-top: 1px solid #eee; padding-top: 8px; }
     .powered { margin: 4px 0 0; }
+    .muted { font-size: 10px; color: #666; margin-bottom: 12px; }
   </style>
 </head>
 <body>
@@ -92,7 +128,7 @@ export function buildInvoiceHtml(data: InvoicePdfPayload): string {
       <p>${business.phone ? esc(business.phone) : ""} ${business.email ? " · " + esc(business.email) : ""}</p>
     </div>
     <div class="meta">
-      <div><strong>Tax Invoice</strong></div>
+      <div><strong>${esc(docTitle)}</strong></div>
       <div>${esc(invoice.invoiceNumber)}</div>
       <div>Issue: ${esc(invoice.issueDate)}</div>
       <div>Due: ${esc(invoice.dueDate)}</div>
@@ -111,6 +147,8 @@ export function buildInvoiceHtml(data: InvoicePdfPayload): string {
     </div>
   </div>
 
+  ${compositionNote}
+
   <h2>Line items</h2>
   <table>
     <thead>
@@ -118,8 +156,7 @@ export function buildInvoiceHtml(data: InvoicePdfPayload): string {
         <th>Description</th>
         <th class="num">Qty</th>
         <th class="num">Rate</th>
-        <th class="num">GST%</th>
-        <th class="num">GST</th>
+        ${taxHeaders}
         <th class="num">Total</th>
       </tr>
     </thead>
@@ -129,7 +166,7 @@ export function buildInvoiceHtml(data: InvoicePdfPayload): string {
   <table class="totals">
     <tr><td>Subtotal (taxable)</td><td class="num">${fmtInr(invoice.subtotal)}</td></tr>
     <tr><td>Discount</td><td class="num">− ${fmtInr(invoice.discountAmount)}</td></tr>
-    <tr><td>Total GST</td><td class="num">${fmtInr(invoice.taxAmount)}</td></tr>
+    ${taxTotals}
     <tr class="grand"><td>Total</td><td class="num">${fmtInr(invoice.totalAmount)}</td></tr>
     <tr><td>Amount paid</td><td class="num">${fmtInr(invoice.amountPaid)}</td></tr>
   </table>
