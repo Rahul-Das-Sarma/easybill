@@ -1,5 +1,3 @@
-import type { HTMLElement } from "@testing-library/dom";
-
 export function getSubmitButton(
   container: HTMLElement,
   label: string,
