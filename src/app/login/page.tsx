@@ -32,6 +32,13 @@ export default function LoginPage() {
           </div>
         </Suspense>
         <p className="mt-6 text-center text-xs text-muted-foreground">
+          <Link
+            href="/login/forgot-password"
+            className="font-medium text-brand hover:text-brand-700"
+          >
+            Forgot password?
+          </Link>
+          <span className="mx-2 text-border">·</span>
           <Link href="/" className="underline underline-offset-4 hover:text-foreground">
             Back to home
           </Link>

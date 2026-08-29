@@ -239,4 +239,12 @@ describe("LoginForm", () => {
     const { getByRole } = renderWithProviders(<LoginForm />);
     expect(getByRole("alert").textContent).toBe("OAuth failed");
   });
+
+  it("shows forgot password link in sign-in mode", () => {
+    const { getByRole } = renderWithProviders(<LoginForm />);
+    expect(getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
+      "href",
+      "/login/forgot-password",
+    );
+  });
 });

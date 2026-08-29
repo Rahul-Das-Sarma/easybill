@@ -1,17 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { authRedirectTo } from "@/lib/supabase/auth-redirect";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-
-function authRedirectTo(path: string) {
-  if (typeof window === "undefined") return undefined;
-  return `${window.location.origin}${path}`;
-}
 
 export function LoginForm() {
   const router = useRouter();
@@ -170,9 +167,19 @@ export function LoginForm() {
         />
       </div>
       <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-medium">
-          Password
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor="password" className="text-sm font-medium">
+            Password
+          </label>
+          {mode === "signin" ? (
+            <Link
+              href="/login/forgot-password"
+              className="text-sm font-medium text-brand hover:text-brand-700"
+            >
+              Forgot password?
+            </Link>
+          ) : null}
+        </div>
         <div className="relative">
           <input
             id="password"

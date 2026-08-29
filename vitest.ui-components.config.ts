@@ -18,6 +18,8 @@ export default defineConfig({
           "src/components/customers/customer-edit-card.tsx",
           "src/components/customers/add-customer-button.tsx",
           "src/components/login-form.tsx",
+          "src/components/forgot-password-form.tsx",
+          "src/components/reset-password-form.tsx",
         ],
       },
     },
