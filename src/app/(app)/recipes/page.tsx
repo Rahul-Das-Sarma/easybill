@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { RecipesPanel } from "@/components/recipes/recipes-panel";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { getBusinessProfile } from "@/lib/business-profile";
-import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { getSessionUser } from "@/lib/auth-user";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 
@@ -16,7 +16,6 @@ export const metadata = {
 export default async function RecipesPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  await ensureAppUser(user);
 
   const profile = await getBusinessProfile();
   if (!profile?.isManufacturer) {

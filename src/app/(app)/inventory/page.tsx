@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { getBusinessProfile } from "@/lib/business-profile";
+import { getSessionUser } from "@/lib/auth-user";
 import { formatProductNameForDisplay } from "@/lib/product-name";
 import { getRecipeStockStatus } from "@/lib/recipe-stock-status";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +30,6 @@ export default async function InventoryPage({ searchParams }: Props) {
   if (!user) {
     redirect("/login");
   }
-  await ensureAppUser(user);
 
   const profile = await getBusinessProfile();
   const isManufacturer = profile?.isManufacturer ?? false;

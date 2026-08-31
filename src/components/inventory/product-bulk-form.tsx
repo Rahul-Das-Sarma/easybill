@@ -8,8 +8,10 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { GST_RATES } from "@/lib/invoice-math";
+import { coerceNumberInput } from "@/lib/number-input";
 import type { ProductJson } from "@/lib/product-json";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2, Plus, Search, Trash2 } from "lucide-react";
@@ -28,11 +30,11 @@ const rowSchema = z.object({
   barcode: z.string().optional(),
   kind: z.enum(["finished_good", "raw_material"]),
   quantity: z.preprocess(
-    (v) => (typeof v === "string" ? Number(v) : v),
+    (v) => coerceNumberInput(v),
     z.number().min(0),
   ),
   unitPrice: z.preprocess(
-    (v) => (typeof v === "string" ? Number(v) : v),
+    (v) => coerceNumberInput(v),
     z.number().min(0),
   ),
   taxRate: z.preprocess(
@@ -400,8 +402,7 @@ export function ProductBulkForm({
                       />
                     </td>
                     <td className="px-2 py-1.5 align-middle">
-                      <input
-                        type="number"
+                      <NumberInput
                         min={0}
                         step="any"
                         className={cn(fieldClass, "text-right tabular-nums")}
@@ -409,8 +410,7 @@ export function ProductBulkForm({
                       />
                     </td>
                     <td className="px-2 py-1.5 align-middle">
-                      <input
-                        type="number"
+                      <NumberInput
                         min={0}
                         step="0.01"
                         className={cn(fieldClass, "text-right tabular-nums")}

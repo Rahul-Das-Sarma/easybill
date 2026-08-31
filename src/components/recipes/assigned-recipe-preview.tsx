@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { RecipePreviewContentSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -60,7 +61,13 @@ export function AssignedRecipePreview({
 
   if (loading) {
     return (
-      <p className="text-sm text-muted-foreground">Loading recipe for {productName}…</p>
+      <section className="rounded-lg border border-border bg-muted/20 p-4">
+        <p className="text-sm font-medium">Recipe for {productName}</p>
+        <p className="text-xs text-muted-foreground">
+          Ingredients per 1 unit of output
+        </p>
+        <RecipePreviewContentSkeleton />
+      </section>
     );
   }
 

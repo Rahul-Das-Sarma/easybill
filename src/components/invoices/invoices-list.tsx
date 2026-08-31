@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/page-header";
+import { TableRowsSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn, invoiceStatusBadgeClass } from "@/lib/utils";
@@ -165,13 +166,9 @@ export function InvoicesList() {
                 <th className="px-3 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody aria-busy={isLoading}>
               {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
-                    Loading…
-                  </td>
-                </tr>
+                <TableRowsSkeleton rows={8} columns={7} />
               ) : !data?.items.length ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">

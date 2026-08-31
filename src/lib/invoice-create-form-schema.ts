@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { coerceNumberInput } from "@/lib/number-input";
+
 const gstRateSchema = z.union([
   z.literal(0),
   z.literal(5),
@@ -11,11 +13,11 @@ const gstRateSchema = z.union([
 export const invoiceLineSchema = z.object({
   productName: z.string(),
   quantity: z.preprocess(
-    (v) => (typeof v === "string" ? Number(v) : v),
+    (v) => coerceNumberInput(v),
     z.number().positive(),
   ),
   unitPrice: z.preprocess(
-    (v) => (typeof v === "string" ? Number(v) : v),
+    (v) => coerceNumberInput(v),
     z.number().min(0),
   ),
   taxRate: z.preprocess(
@@ -32,10 +34,7 @@ export const invoiceCreateFormSchema = z
     lines: z.array(invoiceLineSchema).min(1),
     discountMode: z.enum(["flat", "percent"]),
     discountValue: z.preprocess(
-      (v) => {
-        const n = typeof v === "string" ? Number(v) : v;
-        return Number.isFinite(n) ? n : 0;
-      },
+      (v) => coerceNumberInput(v),
       z.number().min(0),
     ),
     notes: z.string().optional(),

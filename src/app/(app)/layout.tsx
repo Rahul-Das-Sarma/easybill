@@ -14,9 +14,9 @@ export default function AppLayout({
 }) {
   return (
     <>
-      <div className="flex min-h-dvh bg-background">
+      <div className="flex h-dvh overflow-hidden bg-background">
         <AppSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <Providers>
             <main className="flex-1 p-6 md:p-8">{children}</main>
           </Providers>

@@ -8,9 +8,15 @@ import {
   RecipeFormulaEditor,
   type FormulaLine,
 } from "@/components/recipes/recipe-formula-editor";
+import {
+  FormulaLinesSkeleton,
+  RecipeFormFieldsSkeleton,
+} from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { GST_RATES } from "@/lib/invoice-math";
+import { parseNumberInputValue } from "@/lib/number-input";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
@@ -86,6 +92,10 @@ export function RecipeForm({
       setError("Recipe name is required.");
       return;
     }
+    if (lines.some((l) => l.quantityPerUnit <= 0)) {
+      setError("Every ingredient needs a quantity greater than 0.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -130,7 +140,23 @@ export function RecipeForm({
 
   if (loading) {
     return (
-      <p className="text-sm text-muted-foreground">Loading recipe…</p>
+      <div className="space-y-6">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="text-sm font-medium">Product & pricing</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            This name appears in Inventory and on invoices. Saving creates or updates
+            the inventory product automatically.
+          </p>
+          <RecipeFormFieldsSkeleton />
+        </section>
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="text-sm font-medium">Formula (ingredients)</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Raw materials per 1 unit. Produce from the Recipes list when stock allows.
+          </p>
+          <FormulaLinesSkeleton />
+        </section>
+      </div>
     );
   }
 
@@ -156,12 +182,11 @@ export function RecipeForm({
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Unit price (₹)</label>
-            <input
-              type="number"
+            <NumberInput
               min={0}
               step="0.01"
               value={unitPrice}
-              onChange={(e) => setUnitPrice(Number(e.target.value))}
+              onChange={(e) => setUnitPrice(parseNumberInputValue(e.target.value))}
               className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm tabular-nums"
             />
           </div>

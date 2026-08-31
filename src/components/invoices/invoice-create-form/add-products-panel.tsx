@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
 import { formatInr } from "@/lib/format-inr";
 import { GST_RATES } from "@/lib/invoice-math";
+import { parseNumberInputValue } from "@/lib/number-input";
 import { lineFromProduct } from "@/lib/invoice-line-from-product";
 import type { InvoiceCreateFormValues } from "@/lib/invoice-create-form-schema";
 import type { ProductJson } from "@/lib/product-json";
@@ -222,25 +224,24 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
             onChange={(e) => setCustomName(e.target.value)}
             placeholder="Product name"
           />
-          <input
-            type="number"
+          <NumberInput
             min={0.01}
             step="0.01"
             disabled={disabled}
             title="Quantity"
             className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm tabular-nums sm:w-20"
             value={customQty}
-            onChange={(e) => setCustomQty(Number(e.target.value))}
+            emptyZero={false}
+            onChange={(e) => setCustomQty(parseNumberInputValue(e.target.value) || 1)}
           />
-          <input
-            type="number"
+          <NumberInput
             min={0}
             step="0.01"
             disabled={disabled}
             title="Unit price ₹"
             className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm tabular-nums sm:w-24"
             value={customPrice}
-            onChange={(e) => setCustomPrice(Number(e.target.value))}
+            onChange={(e) => setCustomPrice(parseNumberInputValue(e.target.value))}
           />
           <select
             className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm sm:w-18"

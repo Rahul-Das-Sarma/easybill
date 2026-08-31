@@ -50,9 +50,11 @@ export function AppSidebar() {
     void supabase.auth.getUser().then(({ data: { user } }) => {
       setEmail(user?.email ?? undefined);
     });
+  }, []);
 
+  useEffect(() => {
     function loadProfile() {
-      void fetch("/api/me")
+      void fetch("/api/me", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
         .then((data: { isManufacturer?: boolean } | null) => {
           setIsManufacturer(Boolean(data?.isManufacturer));
@@ -63,7 +65,7 @@ export function AppSidebar() {
     loadProfile();
     window.addEventListener("easybill:business-type", loadProfile);
     return () => window.removeEventListener("easybill:business-type", loadProfile);
-  }, [pathname]);
+  }, []);
 
   async function signOut() {
     const supabase = createClient();
@@ -77,12 +79,12 @@ export function AppSidebar() {
   );
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
-      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
+    <aside className="flex h-dvh w-56 shrink-0 flex-col border-r border-border bg-card">
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <Receipt className="size-5 text-brand" aria-hidden />
         <span className="font-semibold tracking-tight">EasyBill</span>
       </div>
-      <nav className="flex flex-1 flex-col gap-0.5 p-2">
+      <nav className="flex flex-col gap-0.5 p-2">
         {items.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/dashboard"
@@ -105,7 +107,7 @@ export function AppSidebar() {
           );
         })}
       </nav>
-      <div className="border-t border-border p-2">
+      <div className="mt-auto shrink-0 border-t border-border p-2">
         {email ? (
           <p className="mb-2 truncate px-2 text-xs text-muted-foreground">
             {email}

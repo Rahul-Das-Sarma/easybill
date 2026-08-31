@@ -1,8 +1,9 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
+
+import { vitestResolve } from "./vitest.resolve.ts";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: vitestResolve,
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup-dom.ts"],
@@ -33,6 +34,7 @@ export default defineConfig({
         "src/components/customers/customer-edit-card.tsx",
         "src/components/customers/add-customer-button.tsx",
         "src/components/login-form.tsx",
+        "src/lib/number-input.ts",
       ],
       exclude: ["**/*.test.tsx", "tests/**"],
       thresholds: {

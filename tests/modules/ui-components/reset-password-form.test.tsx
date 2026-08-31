@@ -54,14 +54,14 @@ describe("ResetPasswordForm", () => {
   });
 
   it("updates password and redirects on success", async () => {
-    const { container, getByLabelText } = renderWithProviders(
+    const { container, findByLabelText } = renderWithProviders(
       <ResetPasswordForm />,
     );
     const userEvent = (await import("@testing-library/user-event")).default;
     const u = userEvent.setup();
 
-    await u.type(getByLabelText("New password"), "newsecret");
-    await u.type(getByLabelText("Confirm password"), "newsecret");
+    await u.type(await findByLabelText("New password"), "newsecret");
+    await u.type(await findByLabelText("Confirm password"), "newsecret");
     await u.click(getSubmitButton(container, "Update password"));
 
     expect(authMocks.updateUser).toHaveBeenCalledWith({
@@ -72,14 +72,14 @@ describe("ResetPasswordForm", () => {
   });
 
   it("shows error when passwords do not match", async () => {
-    const { container, getByLabelText, findByRole } = renderWithProviders(
+    const { container, findByLabelText, findByRole } = renderWithProviders(
       <ResetPasswordForm />,
     );
     const userEvent = (await import("@testing-library/user-event")).default;
     const u = userEvent.setup();
 
-    await u.type(getByLabelText("New password"), "newsecret");
-    await u.type(getByLabelText("Confirm password"), "different");
+    await u.type(await findByLabelText("New password"), "newsecret");
+    await u.type(await findByLabelText("Confirm password"), "different");
     await u.click(getSubmitButton(container, "Update password"));
 
     const alert = await findByRole("alert");
@@ -92,14 +92,14 @@ describe("ResetPasswordForm", () => {
       error: { message: "Password too weak" },
     });
 
-    const { container, getByLabelText, findByRole } = renderWithProviders(
+    const { container, findByLabelText, findByRole } = renderWithProviders(
       <ResetPasswordForm />,
     );
     const userEvent = (await import("@testing-library/user-event")).default;
     const u = userEvent.setup();
 
-    await u.type(getByLabelText("New password"), "newsecret");
-    await u.type(getByLabelText("Confirm password"), "newsecret");
+    await u.type(await findByLabelText("New password"), "newsecret");
+    await u.type(await findByLabelText("Confirm password"), "newsecret");
     await u.click(getSubmitButton(container, "Update password"));
 
     const alert = await findByRole("alert");

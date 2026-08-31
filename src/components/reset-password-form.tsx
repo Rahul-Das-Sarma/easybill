@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
+import { AuthFormSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { getSupabasePublishableKey } from "@/lib/supabase/env";
@@ -66,12 +67,7 @@ export function ResetPasswordForm() {
   }
 
   if (!sessionChecked) {
-    return (
-      <div
-        className="h-32 animate-pulse rounded-xl border border-border bg-muted/40"
-        aria-busy="true"
-      />
-    );
+    return <AuthFormSkeleton />;
   }
 
   if (!hasSession) {

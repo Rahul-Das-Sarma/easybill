@@ -4,14 +4,14 @@ import { Receipt } from "lucide-react";
 
 import { ResetPasswordForm } from "@/components/reset-password-form";
 
+import { AuthFormSkeleton } from "@/components/ui/content-skeletons";
+
 export const metadata = {
   title: "Reset password — EasyBill",
 };
 
 function FormFallback() {
-  return (
-    <div className="h-48 animate-pulse rounded-xl border border-border bg-muted/40" />
-  );
+  return <AuthFormSkeleton />;
 }
 
 export default function ResetPasswordPage() {

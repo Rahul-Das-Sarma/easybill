@@ -4,14 +4,14 @@ import { Receipt } from "lucide-react";
 
 import { ForgotPasswordForm } from "@/components/forgot-password-form";
 
+import { AuthFormSkeleton } from "@/components/ui/content-skeletons";
+
 export const metadata = {
   title: "Forgot password — EasyBill",
 };
 
 function FormFallback() {
-  return (
-    <div className="h-40 animate-pulse rounded-xl border border-border bg-muted/40" />
-  );
+  return <AuthFormSkeleton />;
 }
 
 export default function ForgotPasswordPage() {

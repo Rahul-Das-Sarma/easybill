@@ -1,8 +1,9 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
+
+import { vitestResolve } from "./vitest.resolve.ts";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: vitestResolve,
   test: {
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
@@ -16,6 +17,8 @@ export default defineConfig({
         "src/lib/gst-india.ts",
         "src/lib/invoice-math.ts",
         "src/lib/invoice-payment-status.ts",
+        "src/lib/production-materials.ts",
+        "src/lib/number-input.ts",
       ],
       exclude: ["**/*.test.ts", "tests/**"],
       thresholds: {

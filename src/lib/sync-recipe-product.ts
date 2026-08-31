@@ -36,6 +36,35 @@ export async function syncRecipeOutputProduct(
     return recipe.outputProductId;
   }
 
+  const existingOutput = await tx.product.findFirst({
+    where: {
+      userId,
+      recipeId: recipe.id,
+      kind: "finished_good",
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (existingOutput) {
+    await tx.product.update({
+      where: { id: existingOutput.id },
+      data: {
+        name,
+        unitPrice: recipe.unitPrice,
+        taxRate: recipe.taxRate,
+        recipeId: recipe.id,
+        kind: "finished_good",
+        isActive: true,
+      },
+    });
+    await tx.recipe.update({
+      where: { id: recipe.id },
+      data: { outputProductId: existingOutput.id },
+    });
+    return existingOutput.id;
+  }
+
   const product = await tx.product.create({
     data: {
       userId,
@@ -55,4 +84,21 @@ export async function syncRecipeOutputProduct(
   });
 
   return product.id;
+}
+
+/** Keep inventory output products aligned with recipe name, price, and tax. */
+export async function ensureRecipeOutputProducts(
+  tx: Pick<Prisma.TransactionClient, "product" | "recipe">,
+  userId: string,
+  recipes: {
+    id: string;
+    name: string;
+    outputProductId: string | null;
+    unitPrice: Prisma.Decimal;
+    taxRate: Prisma.Decimal;
+  }[],
+) {
+  for (const recipe of recipes) {
+    await syncRecipeOutputProduct(tx, userId, recipe);
+  }
 }

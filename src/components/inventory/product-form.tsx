@@ -4,15 +4,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
+import { NumberInput } from "@/components/ui/number-input";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { GST_RATES } from "@/lib/invoice-math";
+import { coerceNumberInput } from "@/lib/number-input";
 import type { ProductJson } from "@/lib/product-json";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Loader2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 const gstRateSchema = z.union([
   z.literal(0),
@@ -29,11 +33,11 @@ const schema = z.object({
   description: z.string().optional(),
   kind: z.enum(["finished_good", "raw_material"]),
   quantity: z.preprocess(
-    (v) => (typeof v === "string" ? Number(v) : v),
+    (v) => coerceNumberInput(v),
     z.number().min(0, "Quantity cannot be negative"),
   ),
   unitPrice: z.preprocess(
-    (v) => (typeof v === "string" ? Number(v) : v),
+    (v) => coerceNumberInput(v),
     z.number().min(0, "Price cannot be negative"),
   ),
   taxRate: z.preprocess(
@@ -52,11 +56,14 @@ function FieldLabel({
   htmlFor,
   children,
   hint,
+  hintSpacer,
   required,
 }: {
   htmlFor: string;
   children: ReactNode;
-  hint?: string;
+  hint?: ReactNode;
+  /** Reserve hint line height for grid alignment when hint is shown elsewhere. */
+  hintSpacer?: boolean;
   required?: boolean;
 }) {
   return (
@@ -72,8 +79,16 @@ function FieldLabel({
           </span>
         ) : null}
       </label>
-      {hint ? (
-        <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+      {hint || hintSpacer ? (
+        <div
+          className={cn(
+            "min-h-[1.125rem] text-xs leading-relaxed text-muted-foreground",
+            hintSpacer && !hint && "invisible select-none",
+          )}
+          aria-hidden={hintSpacer && !hint ? true : undefined}
+        >
+          {hint || "\u00a0"}
+        </div>
       ) : null}
     </div>
   );
@@ -112,11 +127,32 @@ function messageFromApiError(error: unknown, fallback: string) {
   return fallback;
 }
 
+function formatPatchError(
+  data: {
+    error?: unknown;
+    shortages?: { name: string; need: number; have: number }[];
+  },
+  fallback: string,
+) {
+  const base = messageFromApiError(data.error, fallback);
+  if (!data.shortages?.length) return base;
+  const hint = data.shortages
+    .map((s) => `${s.name}: need ${s.need}, have ${s.have}`)
+    .join("; ");
+  return `${base} Short on: ${hint}`;
+}
+
 type Props = {
   mode: "create" | "edit";
   productId?: string;
   initial?: ProductJson;
   isManufacturer?: boolean;
+  /** Recipe-managed finished good: max quantity allowed from raw material stock. */
+  quantityLimit?: {
+    current: number;
+    maxTotal: number;
+    maxIncrease: number;
+  };
 };
 
 export function ProductForm({
@@ -124,9 +160,11 @@ export function ProductForm({
   productId,
   initial,
   isManufacturer = false,
+  quantityLimit,
 }: Props) {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [quantityError, setQuantityError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const form = useForm<FormValues>({
@@ -149,6 +187,20 @@ export function ProductForm({
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null);
+    setQuantityError(null);
+
+    if (
+      quantityLimit &&
+      values.quantity > quantityLimit.maxTotal + 1e-9
+    ) {
+      setQuantityError(
+        quantityLimit.maxIncrease > 0
+          ? `You can increase stock by at most ${quantityLimit.maxIncrease} more with current raw materials (max ${quantityLimit.maxTotal}). Use Produce on Recipes or add raw materials.`
+          : "No raw materials available to increase stock. Add materials or use Produce on Recipes.",
+      );
+      return;
+    }
+
     const body = {
       name: values.name.trim(),
       sku: emptyToNull(values.sku),
@@ -188,13 +240,26 @@ export function ProductForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { error?: unknown; product?: ProductJson };
+      const data = (await res.json()) as {
+        error?: unknown;
+        shortages?: { name: string; need: number; have: number }[];
+        product?: ProductJson;
+      };
       if (!res.ok) {
-        setSubmitError(
-          messageFromApiError(data.error, "Could not update product"),
-        );
+        const message = formatPatchError(data, "Could not update product");
+        const isQuantityIssue =
+          Boolean(data.shortages?.length) ||
+          (typeof data.error === "string" &&
+            /raw material/i.test(data.error));
+        if (isQuantityIssue) {
+          setQuantityError(message);
+        } else {
+          setSubmitError(message);
+        }
         return;
       }
+      toast.success("Product saved");
+      router.push("/inventory");
       router.refresh();
     } catch {
       setSubmitError("Something went wrong. Try again.");
@@ -220,6 +285,7 @@ export function ProductForm({
         setDeleting(false);
         return;
       }
+      toast.success("Product deleted");
       router.push("/inventory");
       router.refresh();
     } catch {
@@ -355,24 +421,55 @@ export function ProductForm({
 
           <div className="grid gap-6 px-6 py-6 sm:grid-cols-3 sm:px-8">
             <div className="space-y-2">
-              <FieldLabel htmlFor="product-qty" hint="On hand.">
+              <FieldLabel
+                htmlFor="product-qty"
+                hint={
+                  quantityLimit ? (
+                    <span className="inline-flex items-center gap-1">
+                      max {quantityLimit.maxTotal}
+                      <InfoTooltip
+                        content={`Recipe-managed product. You can increase stock by up to ${quantityLimit.maxIncrease} more with current raw materials (maximum ${quantityLimit.maxTotal}). Increasing quantity here consumes raw materials — use Produce on Recipes for larger batches.`}
+                      />
+                    </span>
+                  ) : (
+                    "On hand."
+                  )
+                }
+              >
                 Quantity
               </FieldLabel>
-              <input
-                id="product-qty"
-                type="number"
-                min={0}
-                step="any"
-                className={cn(
-                  fieldClass,
-                  "tabular-nums",
-                  form.formState.errors.quantity && "border-destructive",
+              <Controller
+                name="quantity"
+                control={form.control}
+                render={({ field }) => (
+                  <NumberInput
+                    id="product-qty"
+                    min={0}
+                    step="any"
+                    className={cn(
+                      fieldClass,
+                      "tabular-nums",
+                      (form.formState.errors.quantity || quantityError) &&
+                        "border-destructive",
+                    )}
+                    value={field.value}
+                    onChange={(e) => {
+                      setQuantityError(null);
+                      field.onChange(e);
+                    }}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
                 )}
-                {...form.register("quantity")}
               />
               {form.formState.errors.quantity ? (
                 <p className="text-xs text-destructive">
                   {form.formState.errors.quantity.message}
+                </p>
+              ) : quantityError ? (
+                <p className="text-xs text-destructive" role="alert">
+                  {quantityError}
                 </p>
               ) : null}
             </div>
@@ -384,17 +481,26 @@ export function ProductForm({
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
                   ₹
                 </span>
-                <input
-                  id="product-price"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  className={cn(
-                    fieldClass,
-                    "pl-8 tabular-nums",
-                    form.formState.errors.unitPrice && "border-destructive",
+                <Controller
+                  name="unitPrice"
+                  control={form.control}
+                  render={({ field }) => (
+                    <NumberInput
+                      id="product-price"
+                      min={0}
+                      step="0.01"
+                      className={cn(
+                        fieldClass,
+                        "pl-8 tabular-nums",
+                        form.formState.errors.unitPrice && "border-destructive",
+                      )}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
                   )}
-                  {...form.register("unitPrice")}
                 />
               </div>
               {form.formState.errors.unitPrice ? (
@@ -506,8 +612,9 @@ export function ProductForm({
             >
               {initial.recipe?.name ?? "View recipe"}
             </Link>
-            . Edit the product name, price, and formula there. Produce from the
-            Recipes page.
+            . Edit the product name, price, and formula there. Increasing quantity
+            here uses raw materials; for larger batches use Produce on the Recipes
+            page.
           </p>
         </section>
       ) : null}

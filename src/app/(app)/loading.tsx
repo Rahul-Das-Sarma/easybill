@@ -1,19 +1,15 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
+/** Generic fallback while a page segment loads (route-specific loading.tsx preferred). */
 export default function AppLoading() {
   return (
-    <div className="space-y-6 animate-pulse">
+    <div className="space-y-8" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading page</span>
       <div className="space-y-2">
-        <div className="h-7 w-40 rounded-md bg-muted" />
-        <div className="h-4 w-64 rounded-md bg-muted" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-72 max-w-full" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-24 rounded-xl border border-border bg-muted/50"
-          />
-        ))}
-      </div>
-      <div className="h-72 rounded-xl border border-border bg-muted/40" />
+      <Skeleton className="h-64 w-full rounded-xl" />
     </div>
   );
 }

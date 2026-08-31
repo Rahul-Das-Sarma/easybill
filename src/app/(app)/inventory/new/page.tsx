@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { ProductBulkForm } from "@/components/inventory/product-bulk-form";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { getBusinessProfile } from "@/lib/business-profile";
+import { getSessionUser } from "@/lib/auth-user";
 import { cn } from "@/lib/utils";
 
 export default async function NewProductPage() {
@@ -13,7 +13,6 @@ export default async function NewProductPage() {
   if (!user) {
     redirect("/login");
   }
-  await ensureAppUser(user);
 
   const profile = await getBusinessProfile();
   const isManufacturer = profile?.isManufacturer ?? false;

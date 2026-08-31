@@ -3,6 +3,7 @@
 import type { FieldArrayWithId, UseFormRegister } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
 import { formatInr } from "@/lib/format-inr";
 import { COMPOSITION_DISCLAIMER } from "@/lib/gst-india";
 import { computeInvoiceLines } from "@/lib/invoice-math";
@@ -83,8 +84,7 @@ export function InvoiceLineItemsCard({
                     />
                   </td>
                   <td className="py-2 pr-2 align-top">
-                    <input
-                      type="number"
+                    <NumberInput
                       step="0.01"
                       min={0.01}
                       className="h-9 w-20 rounded-lg border border-input bg-background px-2 text-sm tabular-nums"
@@ -94,8 +94,7 @@ export function InvoiceLineItemsCard({
                     />
                   </td>
                   <td className="py-2 pr-2 align-top">
-                    <input
-                      type="number"
+                    <NumberInput
                       step="0.01"
                       min={0}
                       className="h-9 w-24 rounded-lg border border-input bg-background px-2 text-sm tabular-nums"
@@ -169,8 +168,7 @@ export function InvoiceLineItemsCard({
               <option value="flat">Flat ₹</option>
               <option value="percent">Percent %</option>
             </select>
-            <input
-              type="number"
+            <NumberInput
               step="0.01"
               min={0}
               className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm tabular-nums"

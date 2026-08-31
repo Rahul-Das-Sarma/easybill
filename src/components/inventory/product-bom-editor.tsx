@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import { BomEditorContentSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
+import { parseNumberInputValue } from "@/lib/number-input";
 import { Trash2 } from "lucide-react";
 
 type RawHit = {
@@ -137,7 +140,11 @@ export function ProductBomEditor({
 
   if (loading) {
     return (
-      <p className="text-sm text-muted-foreground">Loading bill of materials…</p>
+      <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <h2 className="text-sm font-medium">{title}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        <BomEditorContentSkeleton />
+      </section>
     );
   }
 
@@ -194,13 +201,13 @@ export function ProductBomEditor({
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground">Qty / unit</label>
-                <input
-                  type="number"
+                <NumberInput
                   min={0.0001}
                   step="any"
                   value={line.quantityPerUnit}
+                  emptyZero={false}
                   onChange={(e) => {
-                    const n = Number(e.target.value);
+                    const n = parseNumberInputValue(e.target.value);
                     setLines((prev) =>
                       prev.map((l) =>
                         l.rawMaterialId === line.rawMaterialId

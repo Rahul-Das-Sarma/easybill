@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-import { BusinessSettingsForm } from "@/components/settings/business-settings-form";
 import { PageHeader } from "@/components/page-header";
+import { BusinessSettingsForm } from "@/components/settings/business-settings-form";
 import { getSessionUser, getUserSettingsProfile } from "@/lib/auth-user";
 
 export default async function SettingsPage() {

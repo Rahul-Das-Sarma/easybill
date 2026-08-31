@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 
 import { InvoicePdfDocument } from "@/components/invoices/invoice-pdf-document";
+import { FormBlockSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
 import type { InvoicePdfPayload } from "@/lib/invoice-pdf/types";
 import { X } from "lucide-react";
@@ -12,11 +13,7 @@ const PDFViewer = dynamic(
   () => import("@react-pdf/renderer").then((mod) => mod.PDFViewer),
   {
     ssr: false,
-    loading: () => (
-      <p className="p-8 text-center text-sm text-muted-foreground">
-        Loading PDF viewer…
-      </p>
-    ),
+    loading: () => <FormBlockSkeleton />,
   },
 );
 
@@ -90,9 +87,7 @@ export function InvoicePdfPreviewModal({
         </div>
         <div className="min-h-[420px] flex-1 overflow-auto bg-muted/30">
           {loading ? (
-            <p className="p-8 text-center text-sm text-muted-foreground">
-              Loading…
-            </p>
+            <FormBlockSkeleton />
           ) : error ? (
             <p className="p-8 text-center text-sm text-destructive">{error}</p>
           ) : data ? (

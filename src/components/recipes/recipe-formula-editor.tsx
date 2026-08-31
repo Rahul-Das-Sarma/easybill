@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
+import { parseNumberInputValue } from "@/lib/number-input";
 import { Trash2 } from "lucide-react";
 
 type RawHit = {
@@ -116,17 +118,17 @@ export function RecipeFormulaEditor({
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground">Qty / unit</label>
-                <input
-                  type="number"
+                <NumberInput
                   min={0.0001}
                   step="any"
                   value={line.quantityPerUnit}
+                  emptyZero={false}
                   onChange={(e) => {
-                    const n = Number(e.target.value);
+                    const n = parseNumberInputValue(e.target.value);
                     onChange(
                       lines.map((l) =>
                         l.rawMaterialId === line.rawMaterialId
-                          ? { ...l, quantityPerUnit: n }
+                          ? { ...l, quantityPerUnit: n > 0 ? n : l.quantityPerUnit }
                           : l,
                       ),
                     );

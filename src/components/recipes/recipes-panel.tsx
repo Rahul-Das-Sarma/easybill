@@ -4,9 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { RecipeListItemsSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
 import { buttonVariants } from "@/components/ui/button-variants";
 import type { RecipeJson } from "@/lib/recipe-json";
+import { parseNumberInputValue } from "@/lib/number-input";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Pencil, Plus } from "lucide-react";
 
@@ -19,7 +22,7 @@ export function RecipesPanel() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const loadRecipes = useCallback(() => {
-    void fetch("/api/recipes")
+    void fetch("/api/recipes", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { recipes?: RecipeJson[] } | null) => {
         setRecipes(data?.recipes ?? []);
@@ -75,23 +78,11 @@ export function RecipesPanel() {
     }
   }
 
-  if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading recipes…</p>;
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Link
-          href="/recipes/new"
-          className={cn(buttonVariants({ size: "sm" }), "gap-2")}
-        >
-          <Plus className="size-4" aria-hidden />
-          New recipe
-        </Link>
-      </div>
-
-      {recipes.length === 0 ? (
+      {loading ? (
+        <RecipeListItemsSkeleton />
+      ) : recipes.length === 0 ? (
         <section className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
             Create a recipe with a product name and ingredients. It appears in
@@ -111,6 +102,11 @@ export function RecipesPanel() {
             const canProduce = recipe.stockStatus?.canProduceOne ?? false;
             const maxUnits = recipe.stockStatus?.maxProducible ?? 0;
             const ingredientCount = recipe.components?.length ?? 0;
+            const missingOutputProduct = !recipe.outputProductId;
+            const produceDisabled =
+              producingId === recipe.id ||
+              ingredientCount === 0 ||
+              missingOutputProduct;
 
             return (
               <li
@@ -182,15 +178,15 @@ export function RecipesPanel() {
                 <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-4">
                   <div>
                     <label className="text-xs text-muted-foreground">Produce qty</label>
-                    <input
-                      type="number"
+                    <NumberInput
                       min={0.01}
                       step="any"
                       value={produceQty[recipe.id] ?? 1}
+                      emptyZero={false}
                       onChange={(e) =>
                         setProduceQty((q) => ({
                           ...q,
-                          [recipe.id]: Number(e.target.value),
+                          [recipe.id]: parseNumberInputValue(e.target.value) || 1,
                         }))
                       }
                       className="mt-1 h-9 w-28 rounded-lg border border-input bg-background px-3 text-sm tabular-nums"
@@ -199,16 +195,31 @@ export function RecipesPanel() {
                   <Button
                     type="button"
                     size="sm"
-                    disabled={
-                      producingId === recipe.id ||
-                      ingredientCount === 0 ||
-                      !recipe.outputProductId
+                    disabled={produceDisabled}
+                    title={
+                      produceDisabled && producingId !== recipe.id
+                        ? ingredientCount === 0
+                          ? "Add ingredients to the formula first"
+                          : missingOutputProduct
+                            ? "Inventory product is not linked — refresh the page"
+                            : undefined
+                        : undefined
                     }
                     onClick={() => void produce(recipe)}
                   >
                     {producingId === recipe.id ? "Producing…" : "Produce"}
                   </Button>
                 </div>
+
+                {produceDisabled && producingId !== recipe.id ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {ingredientCount === 0
+                      ? "Add ingredients in Edit recipe before you can produce."
+                      : missingOutputProduct
+                        ? "Inventory product is not linked yet. Refresh the page or open Edit and save once."
+                        : null}
+                  </p>
+                ) : null}
 
                 {errors[recipe.id] ? (
                   <p className="mt-2 text-sm text-destructive" role="alert">

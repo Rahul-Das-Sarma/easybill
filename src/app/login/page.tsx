@@ -4,14 +4,14 @@ import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import { Receipt } from "lucide-react";
 
+import { AuthFormSkeleton } from "@/components/ui/content-skeletons";
+
 export const metadata = {
   title: "Sign in — EasyBill",
 };
 
 function LoginFormFallback() {
-  return (
-    <div className="h-64 animate-pulse rounded-xl border border-border bg-muted/40" />
-  );
+  return <AuthFormSkeleton />;
 }
 
 export default function LoginPage() {

@@ -5,8 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AssignedRecipePreview } from "@/components/recipes/assigned-recipe-preview";
+import { ListRowsSkeleton } from "@/components/ui/content-skeletons";
 import { Button } from "@/components/ui/button";
+import { NumberInput } from "@/components/ui/number-input";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { parseNumberInputValue } from "@/lib/number-input";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -55,9 +58,10 @@ export function ProductionPanel() {
   const [rmSaving, setRmSaving] = useState(false);
   const [rmError, setRmError] = useState<string | null>(null);
   const [rmMessage, setRmMessage] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   function loadRuns() {
-    void fetch("/api/production")
+    return fetch("/api/production")
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { runs?: RunRow[] } | null) => {
         setRuns(data?.runs ?? []);
@@ -65,7 +69,7 @@ export function ProductionPanel() {
   }
 
   function loadRawMaterials() {
-    void fetch("/api/products?kind=raw_material&limit=100")
+    return fetch("/api/products?kind=raw_material&limit=100")
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { products?: RawMaterial[] } | null) => {
         setRawMaterials(data?.products ?? []);
@@ -73,8 +77,9 @@ export function ProductionPanel() {
   }
 
   useEffect(() => {
-    loadRuns();
-    loadRawMaterials();
+    void Promise.all([loadRuns(), loadRawMaterials()]).finally(() => {
+      setInitialLoading(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -136,7 +141,7 @@ export function ProductionPanel() {
       setRmSku("");
       setRmPrice(0);
       setRmMessage("Raw material added to inventory.");
-      loadRawMaterials();
+      void loadRawMaterials();
       router.refresh();
     } finally {
       setRmSaving(false);
@@ -172,8 +177,8 @@ export function ProductionPanel() {
       }
       setNotes("");
       setQty(1);
-      loadRuns();
-      loadRawMaterials();
+      void loadRuns();
+      void loadRawMaterials();
       router.refresh();
     } finally {
       setSubmitting(false);
@@ -211,23 +216,21 @@ export function ProductionPanel() {
           </div>
           <div>
             <label className="text-xs text-muted-foreground">On hand</label>
-            <input
-              type="number"
+            <NumberInput
               min={0}
               step="any"
               value={rmQty}
-              onChange={(e) => setRmQty(Number(e.target.value))}
+              onChange={(e) => setRmQty(parseNumberInputValue(e.target.value))}
               className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm tabular-nums"
             />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Unit price (₹)</label>
-            <input
-              type="number"
+            <NumberInput
               min={0}
               step="0.01"
               value={rmPrice}
-              onChange={(e) => setRmPrice(Number(e.target.value))}
+              onChange={(e) => setRmPrice(parseNumberInputValue(e.target.value))}
               className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm tabular-nums"
             />
           </div>
@@ -261,7 +264,11 @@ export function ProductionPanel() {
           ) : null}
         </div>
 
-        {rawMaterials.length === 0 ? (
+        {initialLoading ? (
+          <div className="mt-4">
+            <ListRowsSkeleton count={4} />
+          </div>
+        ) : rawMaterials.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
             No raw materials yet. Add one above, or create them in Inventory.
           </p>
@@ -368,12 +375,12 @@ export function ProductionPanel() {
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
             <label className="text-xs text-muted-foreground">Quantity to produce</label>
-            <input
-              type="number"
+            <NumberInput
               min={0.01}
               step="any"
               value={qty}
-              onChange={(e) => setQty(Number(e.target.value))}
+              emptyZero={false}
+              onChange={(e) => setQty(parseNumberInputValue(e.target.value) || 1)}
               className="mt-1 h-9 w-32 rounded-lg border border-input bg-background px-3 text-sm tabular-nums"
             />
           </div>
@@ -414,7 +421,11 @@ export function ProductionPanel() {
 
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="text-sm font-medium">Recent production</h2>
-        {runs.length === 0 ? (
+        {initialLoading ? (
+          <div className="mt-3">
+            <ListRowsSkeleton count={3} bordered={false} />
+          </div>
+        ) : runs.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No production runs yet.</p>
         ) : (
           <ul className="mt-3 divide-y divide-border text-sm">

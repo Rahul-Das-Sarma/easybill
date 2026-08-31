@@ -5,7 +5,12 @@ import { z } from "zod";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { prisma } from "@/lib/prisma";
 import { recipeInclude, recipeToJson } from "@/lib/recipe-json";
-import { syncRecipeOutputProduct } from "@/lib/sync-recipe-product";
+import {
+  ensureRecipeOutputProducts,
+  syncRecipeOutputProduct,
+} from "@/lib/sync-recipe-product";
+
+export const dynamic = "force-dynamic";
 
 const gstRateSchema = z.union([
   z.literal(0),
@@ -82,8 +87,18 @@ export async function GET() {
     include: recipeInclude,
   });
 
+  await prisma.$transaction(async (tx) => {
+    await ensureRecipeOutputProducts(tx, user.id, recipes);
+  });
+
+  const refreshed = await prisma.recipe.findMany({
+    where: { userId: user.id },
+    orderBy: { name: "asc" },
+    include: recipeInclude,
+  });
+
   return NextResponse.json({
-    recipes: recipes.map((r) => recipeToJson(r)),
+    recipes: refreshed.map((r) => recipeToJson(r)),
   });
 }
 

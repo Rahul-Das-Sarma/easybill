@@ -6,6 +6,8 @@ import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { productToJson } from "@/lib/product-json";
 import { normalizeProductNameForStorage } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
+import { getProductionShortages } from "@/lib/production-materials";
+import { resolveProductBom } from "@/lib/resolve-product-bom";
 
 const gstRateSchema = z.union([
   z.literal(0),
@@ -86,7 +88,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const existing = await prisma.product.findFirst({
     where: { id, userId: user.id },
-    select: { id: true },
+    select: { id: true, kind: true, quantity: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -100,10 +102,40 @@ export async function PATCH(req: Request, { params }: Params) {
   if (d.barcode !== undefined) data.barcode = normalizeOptionalCode(d.barcode);
   if (d.description !== undefined) data.description = d.description?.trim() || null;
   if (d.kind !== undefined) data.kind = d.kind;
-  if (d.quantity !== undefined) data.quantity = new Prisma.Decimal(d.quantity);
   if (d.unitPrice !== undefined) data.unitPrice = new Prisma.Decimal(d.unitPrice);
   if (d.taxRate !== undefined) data.taxRate = new Prisma.Decimal(d.taxRate);
   if (d.isActive !== undefined) data.isActive = d.isActive;
+
+  let bomForIncrease: Awaited<ReturnType<typeof resolveProductBom>> = null;
+  let quantityIncrease = 0;
+  if (d.quantity !== undefined) {
+    const currentQty = Number(existing.quantity);
+    const newQty = d.quantity;
+    quantityIncrease = Math.max(0, newQty - currentQty);
+    const effectiveKind = d.kind ?? existing.kind;
+
+    if (quantityIncrease > 0 && effectiveKind === "finished_good") {
+      bomForIncrease = await resolveProductBom(user.id, id);
+      if (bomForIncrease && bomForIncrease.lines.length > 0) {
+        const shortages = getProductionShortages(
+          bomForIncrease.lines,
+          quantityIncrease,
+        );
+        if (shortages.length > 0) {
+          return NextResponse.json(
+            {
+              error:
+                "Not enough raw materials to increase finished good stock. Produce on Recipes or add raw materials first.",
+              shortages,
+            },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
+    data.quantity = new Prisma.Decimal(newQty);
+  }
 
   if (d.recipeId !== undefined) {
     if (d.recipeId === null) {
@@ -125,15 +157,48 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   try {
-    const product = await prisma.product.update({
-      where: { id },
-      data,
-      include: {
-        recipe: { select: { id: true, name: true } },
-      },
+    const product = await prisma.$transaction(async (tx) => {
+      if (quantityIncrease > 0 && bomForIncrease?.lines.length) {
+        for (const line of bomForIncrease.lines) {
+          const consume = new Prisma.Decimal(
+            line.quantityPerUnit * quantityIncrease,
+          );
+          const updated = await tx.product.updateMany({
+            where: {
+              id: line.rawMaterialId,
+              userId: user.id,
+              quantity: { gte: consume },
+            },
+            data: {
+              quantity: { decrement: consume },
+            },
+          });
+          if (updated.count !== 1) {
+            throw new Error("STOCK_RACE");
+          }
+        }
+      }
+
+      return tx.product.update({
+        where: { id },
+        data,
+        include: {
+          recipe: { select: { id: true, name: true } },
+        },
+      });
     });
+
     return NextResponse.json({ product: productToJson(product) });
   } catch (e) {
+    if (e instanceof Error && e.message === "STOCK_RACE") {
+      return NextResponse.json(
+        {
+          error:
+            "Raw material stock changed while saving. Refresh and try again.",
+        },
+        { status: 409 },
+      );
+    }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return NextResponse.json(
         {

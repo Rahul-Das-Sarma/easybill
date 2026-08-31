@@ -24,7 +24,15 @@ export function getRecipeStockStatus(
 
   for (const line of components) {
     const perUnit = line.quantityPerUnit;
-    if (perUnit <= 0) continue;
+    if (perUnit <= 0) {
+      shortages.push({
+        name: line.name,
+        need: 1,
+        have: 0,
+      });
+      maxProducible = 0;
+      continue;
+    }
 
     const maxForLine = line.stock / perUnit;
     if (maxForLine < maxProducible) maxProducible = maxForLine;
