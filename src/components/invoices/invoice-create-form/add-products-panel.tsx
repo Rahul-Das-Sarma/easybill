@@ -48,7 +48,7 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
         setHits([]);
         return;
       }
-      const kindQs = preferFinishedGoods ? "&kind=finished_good" : "";
+      const kindQs = preferFinishedGoods ? "&kind=finished_good&inStock=true" : "";
       void fetch(
         `/api/products?q=${encodeURIComponent(q)}&limit=20${kindQs}`,
       )
@@ -151,7 +151,7 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
               type="search"
               autoComplete="off"
               disabled={disabled}
-              placeholder="Search by name… (Enter for barcode / SKU)"
+              placeholder="Search in-stock products… (Enter for barcode / SKU)"
               className={cn(
                 "h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none ring-ring focus-visible:ring-2",
                 disabled && "cursor-not-allowed opacity-60",
@@ -194,7 +194,7 @@ export function InvoiceAddProductsPanel({ onAppendLine, disabled }: Props) {
                       {[p.sku && `SKU ${p.sku}`, p.barcode && `${p.barcode}`]
                         .filter(Boolean)
                         .join(" · ")}{" "}
-                      · {formatInr.format(p.unitPrice)}
+                      · Stock {p.quantity} · {formatInr.format(p.unitPrice)}
                     </span>
                   </button>
                 </li>

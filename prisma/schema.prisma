@@ -76,6 +76,7 @@ model User {
   invoices       Invoice[]
   products       Product[]
   bomComponents  BomComponent[]
+  recipes        Recipe[]
   productionRuns ProductionRun[]
 
   @@map("users")
@@ -98,12 +99,19 @@ model Product {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  recipeId String? @map("recipe_id") @db.Uuid
+  recipe   Recipe? @relation("ProductRecipe", fields: [recipeId], references: [id], onDelete: SetNull)
+
+  recipeOutputFor Recipe? @relation("RecipeOutputProduct")
+
   bomAsFinishedGood BomComponent[]  @relation("BomFinishedGood")
   bomAsRawMaterial  BomComponent[]  @relation("BomRawMaterial")
+  recipeComponents  RecipeComponent[]
   productionRuns    ProductionRun[]
 
   @@index([userId])
   @@index([userId, kind])
+  @@index([recipeId])
   @@unique([userId, sku])
   @@unique([userId, barcode])
   @@map("products")
@@ -127,16 +135,55 @@ model BomComponent {
   @@map("bom_components")
 }
 
+/** Reusable production formula — configure once; creates inventory product automatically. */
+model Recipe {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  name            String
+  description     String?
+  outputProductId String?  @unique @map("output_product_id") @db.Uuid
+  unitPrice       Decimal  @default(0) @map("unit_price") @db.Decimal(10, 2)
+  taxRate         Decimal  @default(18) @map("tax_rate") @db.Decimal(5, 2)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outputProduct  Product?          @relation("RecipeOutputProduct", fields: [outputProductId], references: [id], onDelete: SetNull)
+  components     RecipeComponent[]
+  products       Product[]         @relation("ProductRecipe")
+  productionRuns ProductionRun[]
+
+  @@index([userId])
+  @@map("recipes")
+}
+
+/** One line in a recipe formula (qty per 1 unit of output). */
+model RecipeComponent {
+  id              String  @id @default(uuid()) @db.Uuid
+  recipeId        String  @map("recipe_id") @db.Uuid
+  rawMaterialId   String  @map("raw_material_id") @db.Uuid
+  quantityPerUnit Decimal @map("quantity_per_unit") @db.Decimal(12, 4)
+
+  recipe      Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  rawMaterial Product @relation(fields: [rawMaterialId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, rawMaterialId])
+  @@index([recipeId])
+  @@map("recipe_components")
+}
+
 model ProductionRun {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @map("user_id") @db.Uuid
   finishedGoodId String   @map("finished_good_id") @db.Uuid
+  recipeId       String?  @map("recipe_id") @db.Uuid
   quantity       Decimal  @db.Decimal(10, 2)
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   finishedGood Product @relation(fields: [finishedGoodId], references: [id], onDelete: Cascade)
+  recipe       Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@map("production_runs")

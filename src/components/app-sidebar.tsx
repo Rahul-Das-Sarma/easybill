@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-  Factory,
   FileText,
+  FlaskConical,
   LayoutDashboard,
   LogOut,
   Package,
@@ -30,9 +30,9 @@ const nav: NavItem[] = [
   { href: "/invoices", label: "Invoices", icon: FileText },
   { href: "/inventory", label: "Inventory", icon: Package },
   {
-    href: "/production",
-    label: "Production",
-    icon: Factory,
+    href: "/recipes",
+    label: "Recipes",
+    icon: FlaskConical,
     manufacturerOnly: true,
   },
   { href: "/customers", label: "Customers", icon: Users },

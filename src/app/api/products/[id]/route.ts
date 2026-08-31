@@ -29,6 +29,7 @@ const patchBodySchema = z
       gstRateSchema.optional(),
     ),
     isActive: z.boolean().optional(),
+    recipeId: z.string().uuid().nullable().optional(),
   })
   .strict();
 
@@ -49,6 +50,9 @@ export async function GET(_req: Request, { params }: Params) {
   const { id } = await params;
   const product = await prisma.product.findFirst({
     where: { id, userId: user.id },
+    include: {
+      recipe: { select: { id: true, name: true } },
+    },
   });
   if (!product) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -101,6 +105,21 @@ export async function PATCH(req: Request, { params }: Params) {
   if (d.taxRate !== undefined) data.taxRate = new Prisma.Decimal(d.taxRate);
   if (d.isActive !== undefined) data.isActive = d.isActive;
 
+  if (d.recipeId !== undefined) {
+    if (d.recipeId === null) {
+      data.recipe = { disconnect: true };
+    } else {
+      const recipe = await prisma.recipe.findFirst({
+        where: { id: d.recipeId, userId: user.id },
+        select: { id: true },
+      });
+      if (!recipe) {
+        return NextResponse.json({ error: "Recipe not found." }, { status: 400 });
+      }
+      data.recipe = { connect: { id: d.recipeId } };
+    }
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
@@ -109,6 +128,9 @@ export async function PATCH(req: Request, { params }: Params) {
     const product = await prisma.product.update({
       where: { id },
       data,
+      include: {
+        recipe: { select: { id: true, name: true } },
+      },
     });
     return NextResponse.json({ product: productToJson(product) });
   } catch (e) {

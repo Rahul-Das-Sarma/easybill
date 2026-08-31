@@ -49,10 +49,14 @@ export async function GET(req: Request) {
     kindParam === "finished_good" || kindParam === "raw_material"
       ? kindParam
       : undefined;
+  const inStock = searchParams.get("inStock") === "true";
   const limit = Math.min(
     100,
     Math.max(1, Number.parseInt(searchParams.get("limit") ?? "25", 10) || 25),
   );
+
+  const stockFilter =
+    inStock ? { quantity: { gt: new Prisma.Decimal(0) } } : {};
 
   if (!q) {
     if (!kind) {
@@ -63,6 +67,7 @@ export async function GET(req: Request) {
         userId: user.id,
         isActive: true,
         kind,
+        ...stockFilter,
       },
       orderBy: [{ name: "asc" }],
       take: limit,
@@ -77,6 +82,7 @@ export async function GET(req: Request) {
       userId: user.id,
       isActive: true,
       ...(kind ? { kind } : {}),
+      ...stockFilter,
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { sku: { contains: q, mode: "insensitive" } },

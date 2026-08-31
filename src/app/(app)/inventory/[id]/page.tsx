@@ -27,6 +27,9 @@ export default async function EditProductPage({ params }: Props) {
   const [product, profile] = await Promise.all([
     prisma.product.findFirst({
       where: { id, userId: user.id },
+      include: {
+        recipe: { select: { id: true, name: true } },
+      },
     }),
     getBusinessProfile(),
   ]);

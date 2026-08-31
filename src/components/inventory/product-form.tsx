@@ -9,7 +9,6 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { ProductBomEditor } from "@/components/inventory/product-bom-editor";
 import { GST_RATES } from "@/lib/invoice-math";
 import type { ProductJson } from "@/lib/product-json";
 import { cn } from "@/lib/utils";
@@ -495,10 +494,22 @@ export function ProductForm({
       {mode === "edit" &&
       productId &&
       isManufacturer &&
-      watchedKind === "finished_good" ? (
-        <div className="mt-8">
-          <ProductBomEditor finishedGoodId={productId} />
-        </div>
+      watchedKind === "finished_good" &&
+      initial?.recipeId ? (
+        <section className="mt-8 rounded-xl border border-border bg-card p-5 shadow-sm">
+          <h2 className="text-sm font-medium">Production recipe</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            This product is managed by the recipe{" "}
+            <Link
+              href={`/recipes/${initial.recipeId}`}
+              className="font-medium text-brand hover:text-brand-700"
+            >
+              {initial.recipe?.name ?? "View recipe"}
+            </Link>
+            . Edit the product name, price, and formula there. Produce from the
+            Recipes page.
+          </p>
+        </section>
       ) : null}
     </div>
   );

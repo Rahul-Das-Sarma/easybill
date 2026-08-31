@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ProductBomEditor } from "@/components/inventory/product-bom-editor";
+import { AssignedRecipePreview } from "@/components/recipes/assigned-recipe-preview";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -295,8 +295,8 @@ export function ProductionPanel() {
       <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <h2 className="text-sm font-medium">Produce finished goods</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Select a finished good, set its recipe if needed, then produce. Production
-          consumes raw materials from the recipe and increases finished-good stock.
+          Select a finished good with an assigned recipe, then produce. Production
+          uses the saved formula and consumes raw materials automatically.
         </p>
 
         <div className="relative mt-4 max-w-xl">
@@ -353,16 +353,15 @@ export function ProductionPanel() {
 
         {selected ? (
           <div className="mt-4">
-            <ProductBomEditor
+            <AssignedRecipePreview
               key={selected.id}
-              finishedGoodId={selected.id}
-              title={`Recipe for ${selected.name}`}
-              description="Add raw materials and qty needed per 1 unit. Save the recipe before producing."
+              productId={selected.id}
+              productName={selected.name}
             />
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">
-            Search and select a finished good to view or edit its recipe.
+            Search and select a finished good to view its assigned recipe.
           </p>
         )}
 

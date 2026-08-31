@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { formatProductNameForDisplay } from "@/lib/product-name";
 import { prisma } from "@/lib/prisma";
+import { resolveProductBom } from "@/lib/resolve-product-bom";
 
 const createSchema = z.object({
   finishedGoodId: z.string().uuid(),
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
       kind: "finished_good",
       isActive: true,
     },
+    select: { id: true, recipeId: true },
   });
   if (!fg) {
     return NextResponse.json(
@@ -100,29 +102,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const bom = await prisma.bomComponent.findMany({
-    where: { userId: user.id, finishedGoodId },
-    include: {
-      rawMaterial: {
-        select: { id: true, name: true, quantity: true },
-      },
-    },
-  });
-
-  if (bom.length === 0) {
+  const resolved = await resolveProductBom(user.id, finishedGoodId);
+  if (!resolved || resolved.lines.length === 0) {
     return NextResponse.json(
       {
         error:
-          "This finished good has no bill of materials. Add raw materials on the product page first.",
+          "This finished good has no recipe assigned. Assign a recipe on the product page or in Recipes.",
       },
       { status: 400 },
     );
   }
 
+  const bom = resolved.lines;
+
   const shortages: { name: string; need: number; have: number }[] = [];
   for (const line of bom) {
-    const need = Number(line.quantityPerUnit) * quantity;
-    const have = Number(line.rawMaterial.quantity);
+    const need = line.quantityPerUnit * quantity;
+    const have = line.rawMaterial.quantity;
     if (have + 1e-9 < need) {
       shortages.push({
         name: formatProductNameForDisplay(line.rawMaterial.name),
@@ -144,7 +140,7 @@ export async function POST(req: Request) {
 
   const run = await prisma.$transaction(async (tx) => {
     for (const line of bom) {
-      const consume = new Prisma.Decimal(Number(line.quantityPerUnit) * quantity);
+      const consume = new Prisma.Decimal(line.quantityPerUnit * quantity);
       const updated = await tx.product.updateMany({
         where: {
           id: line.rawMaterialId,
@@ -171,6 +167,7 @@ export async function POST(req: Request) {
       data: {
         userId: user.id,
         finishedGoodId,
+        recipeId: resolved.recipeId,
         quantity: new Prisma.Decimal(quantity),
         notes: notes?.trim() || null,
       },

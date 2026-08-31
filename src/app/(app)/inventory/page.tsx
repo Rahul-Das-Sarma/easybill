@@ -6,8 +6,10 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
 import { getBusinessProfile } from "@/lib/business-profile";
 import { formatProductNameForDisplay } from "@/lib/product-name";
+import { getRecipeStockStatus } from "@/lib/recipe-stock-status";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
 
 type Props = {
   searchParams: Promise<{ q?: string; kind?: string }>;
@@ -66,6 +68,20 @@ export default async function InventoryPage({ searchParams }: Props) {
       unitPrice: true,
       taxRate: true,
       isActive: true,
+      recipeId: true,
+      recipe: {
+        select: {
+          id: true,
+          components: {
+            select: {
+              quantityPerUnit: true,
+              rawMaterial: {
+                select: { name: true, quantity: true },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -75,7 +91,7 @@ export default async function InventoryPage({ searchParams }: Props) {
         title="Inventory"
         description={
           isManufacturer
-            ? "Finished goods you sell and raw materials you consume in production."
+            ? "Finished goods from recipes and raw materials. Produce on Recipes, then invoice in-stock items."
             : "Products you sell: stock, prices, and barcodes for quick lookup."
         }
         actions={
@@ -147,7 +163,7 @@ export default async function InventoryPage({ searchParams }: Props) {
               {q || kindFilter
                 ? "No products match your filters. Try another term or clear the search."
                 : isManufacturer
-                  ? "No products yet. Add finished goods and raw materials, then set a bill of materials on each finished good."
+                  ? "No products yet. Create a recipe to add finished goods, or add raw materials directly."
                   : "No products yet. Add a name, quantity, and unit price—SKU and barcode are optional."}
             </p>
             {!q && !kindFilter ? (
@@ -179,7 +195,25 @@ export default async function InventoryPage({ searchParams }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {products.map((p) => (
+                {products.map((p) => {
+                  const recipeStatus =
+                    p.recipe?.components ?
+                      getRecipeStockStatus(
+                        p.recipe.components.map((c) => ({
+                          rawMaterialId: "",
+                          name: formatProductNameForDisplay(c.rawMaterial.name),
+                          quantityPerUnit: Number(c.quantityPerUnit),
+                          stock: Number(c.rawMaterial.quantity),
+                        })),
+                      )
+                    : null;
+                  const lowMaterials =
+                    isManufacturer &&
+                    recipeStatus &&
+                    p.recipe?.components.length &&
+                    !recipeStatus.canProduceOne;
+
+                  return (
                   <tr
                     key={p.id}
                     className={cn(
@@ -191,6 +225,15 @@ export default async function InventoryPage({ searchParams }: Props) {
                       <span className="font-medium">
                         {formatProductNameForDisplay(p.name)}
                       </span>
+                      {lowMaterials ? (
+                        <span
+                          className="ml-2 inline-flex items-center gap-0.5 text-warning"
+                          title="Not enough raw materials to produce"
+                        >
+                          <AlertTriangle className="size-3.5" aria-hidden />
+                          <span className="sr-only">Low raw materials</span>
+                        </span>
+                      ) : null}
                       {!p.isActive ? (
                         <span className="ml-2 rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                           Inactive
@@ -231,7 +274,8 @@ export default async function InventoryPage({ searchParams }: Props) {
                       </Link>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
