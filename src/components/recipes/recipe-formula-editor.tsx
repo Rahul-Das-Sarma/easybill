@@ -30,26 +30,32 @@ export function RecipeFormulaEditor({
   onChange: (lines: FormulaLine[]) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const [hits, setHits] = useState<RawHit[]>([]);
 
   useEffect(() => {
+    if (!open) return;
+
     const q = query.trim();
-    if (q.length < 2) {
-      setHits([]);
-      return;
-    }
+    const url = q
+      ? `/api/products?q=${encodeURIComponent(q)}&kind=raw_material&limit=15`
+      : "/api/products?kind=raw_material&limit=15";
+
     const t = setTimeout(() => {
-      void fetch(
-        `/api/products?q=${encodeURIComponent(q)}&kind=raw_material&limit=15`,
-      )
+      void fetch(url)
         .then((res) => (res.ok ? res.json() : null))
         .then((data: { products?: RawHit[] } | null) => {
           setHits(data?.products ?? []);
         })
         .catch(() => setHits([]));
-    }, 200);
+    }, q ? 200 : 0);
+
     return () => clearTimeout(t);
-  }, [query]);
+  }, [query, open]);
+
+  const visibleHits = hits.filter(
+    (p) => !lines.some((l) => l.rawMaterialId === p.id),
+  );
 
   function addMaterial(p: RawHit) {
     if (lines.some((l) => l.rawMaterialId === p.id)) return;
@@ -64,7 +70,6 @@ export function RecipeFormulaEditor({
       },
     ]);
     setQuery("");
-    setHits([]);
   }
 
   return (
@@ -74,27 +79,39 @@ export function RecipeFormulaEditor({
         <input
           type="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}
           placeholder="Search raw materials…"
           className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
         />
-        {hits.length > 0 ? (
-          <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-md">
-            {hits.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  className="flex w-full px-3 py-2 text-left hover:bg-muted"
-                  onClick={() => addMaterial(p)}
-                >
-                  <span className="font-medium">{p.name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    Stock {p.quantity}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        {open ? (
+          visibleHits.length > 0 ? (
+            <ul className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-lg border border-border bg-popover py-1 text-sm shadow-md">
+              {visibleHits.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    className="flex w-full px-3 py-2 text-left hover:bg-muted"
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => addMaterial(p)}
+                  >
+                    <span className="font-medium">{p.name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      Stock {p.quantity}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : query.trim() ? (
+            <p className="absolute z-10 mt-1 w-full rounded-lg border border-border bg-popover px-3 py-2 text-sm text-muted-foreground shadow-md">
+              No raw materials match your search.
+            </p>
+          ) : null
         ) : null}
       </div>
 
