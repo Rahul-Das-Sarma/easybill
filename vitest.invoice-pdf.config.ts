@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 
-import { vitestResolve } from "./vitest.resolve.ts";
+import { vitestResolve } from "./vitest.resolve.mjs";
 
 export default defineConfig({
   resolve: vitestResolve,
