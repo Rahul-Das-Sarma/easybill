@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { CompliancePanel } from "@/components/invoices/compliance-panel";
 import { InvoiceDetailActions } from "@/components/invoices/invoice-detail-actions";
 import { InvoiceLifecycleActions } from "@/components/invoices/invoice-lifecycle-actions";
 import { InvoicePaymentsPanel } from "@/components/invoices/invoice-payments-panel";
@@ -182,6 +183,13 @@ export default async function InvoiceDetailPage({ params }: Props) {
         </div>
 
         <aside className="space-y-4">
+          <CompliancePanel
+            invoiceId={invoice.id}
+            irn={invoice.irn}
+            irnAckNo={invoice.irnAckNo}
+            ewayBillNo={invoice.ewayBillNo}
+            canGenerate={!isDraft && invoice.gstSchemeAtIssue === "regular"}
+          />
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <h2 className="text-sm font-medium">Summary</h2>
             <dl className="mt-3 space-y-2 text-sm">

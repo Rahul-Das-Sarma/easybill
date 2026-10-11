@@ -14,6 +14,7 @@ export function lineFromProduct(
 ): InvoiceCreateFormValues["lines"][number] {
   return {
     productName: p.name,
+    hsnCode: p.hsnCode ?? "",
     quantity: 1,
     unitPrice: p.unitPrice,
     taxRate: pickGstRateFromProduct(p),

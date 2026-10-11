@@ -3,6 +3,7 @@ import { vi } from "vitest";
 
 export type MockUserRow = {
   id: string;
+  clerkUserId?: string | null;
   email: string;
   name: string;
   companyName: string;
@@ -48,10 +49,16 @@ export function createMockPrisma() {
         where,
         select,
       }: {
-        where: { id: string };
+        where: { id?: string; clerkUserId?: string; email?: string };
         select?: Record<string, boolean>;
       }) => {
-        const row = users.get(where.id);
+        const row = where.id
+          ? users.get(where.id)
+          : where.clerkUserId
+            ? [...users.values()].find((user) => user.clerkUserId === where.clerkUserId)
+            : where.email
+              ? [...users.values()].find((user) => user.email === where.email)
+              : undefined;
         if (!row) return null;
         if (!select) return row;
         return Object.fromEntries(
@@ -59,17 +66,29 @@ export function createMockPrisma() {
         );
       },
     ),
-    create: vi.fn(async ({ data }: { data: MockUserRow }) => {
-      if (users.has(data.id)) {
-        const { Prisma } = await import("@/generated/prisma/client");
-        throw new Prisma.PrismaClientKnownRequestError("Unique constraint", {
-          code: "P2002",
-          clientVersion: "test",
-        });
-      }
-      users.set(data.id, { ...data });
-      return data;
-    }),
+    create: vi.fn(
+      async ({
+        data,
+        select,
+      }: {
+        data: MockUserRow;
+        select?: Record<string, boolean>;
+      }) => {
+        if (users.has(data.id)) {
+          const { Prisma } = await import("@/generated/prisma/client");
+          throw new Prisma.PrismaClientKnownRequestError("Unique constraint", {
+            code: "P2002",
+            clientVersion: "test",
+          });
+        }
+        const row = { ...createDefaultUserRow({ id: data.id }), ...data };
+        users.set(data.id, row);
+        if (!select) return row;
+        return Object.fromEntries(
+          Object.keys(select).map((key) => [key, row[key as keyof MockUserRow]]),
+        );
+      },
+    ),
     update: vi.fn(
       async ({
         where,

@@ -94,6 +94,7 @@ export default async function EditInvoicePage({ params }: Props) {
           dueDate: invoice.dueDate.toISOString().slice(0, 10),
           lines: invoice.items.map((it) => ({
             productName: it.productName,
+            hsnCode: it.hsnCode ?? "",
             quantity: Number(it.quantity),
             unitPrice: Number(it.unitPrice),
             taxRate: Number(it.taxRate) as 0 | 5 | 12 | 18 | 28,

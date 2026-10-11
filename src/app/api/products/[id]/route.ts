@@ -22,6 +22,7 @@ const patchBodySchema = z
     name: z.string().min(1).optional(),
     sku: z.string().optional().nullable(),
     barcode: z.string().optional().nullable(),
+    hsnCode: z.string().max(8).optional().nullable(),
     description: z.string().optional().nullable(),
     kind: z.enum(["finished_good", "raw_material"]).optional(),
     quantity: z.coerce.number().min(0).optional(),
@@ -100,6 +101,7 @@ export async function PATCH(req: Request, { params }: Params) {
   if (d.name !== undefined) data.name = normalizeProductNameForStorage(d.name);
   if (d.sku !== undefined) data.sku = normalizeOptionalCode(d.sku);
   if (d.barcode !== undefined) data.barcode = normalizeOptionalCode(d.barcode);
+  if (d.hsnCode !== undefined) data.hsnCode = d.hsnCode?.trim() || null;
   if (d.description !== undefined) data.description = d.description?.trim() || null;
   if (d.kind !== undefined) data.kind = d.kind;
   if (d.unitPrice !== undefined) data.unitPrice = new Prisma.Decimal(d.unitPrice);

@@ -15,6 +15,7 @@ type CustomerData = {
   address: string | null;
   gstNumber: string | null;
   stateCode: string | null;
+  pincode?: string | null;
 };
 
 export function CustomerEditCard({ customer }: { customer: CustomerData }) {
@@ -26,6 +27,7 @@ export function CustomerEditCard({ customer }: { customer: CustomerData }) {
   const [address, setAddress] = useState(customer.address ?? "");
   const [gst, setGst] = useState(customer.gstNumber ?? "");
   const [stateCode, setStateCode] = useState(customer.stateCode ?? "");
+  const [pincode, setPincode] = useState(customer.pincode ?? "");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -42,6 +44,7 @@ export function CustomerEditCard({ customer }: { customer: CustomerData }) {
     setAddress(customer.address ?? "");
     setGst(customer.gstNumber ?? "");
     setStateCode(customer.stateCode ?? "");
+    setPincode(customer.pincode ?? "");
     setError(null);
   }
 
@@ -59,6 +62,7 @@ export function CustomerEditCard({ customer }: { customer: CustomerData }) {
           address: address.trim() || null,
           gstNumber: gst.trim() || null,
           stateCode: stateCode || null,
+          pincode: pincode.trim() || null,
         }),
       });
       const json = (await res.json()) as { error?: string };
@@ -201,6 +205,18 @@ export function CustomerEditCard({ customer }: { customer: CustomerData }) {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label htmlFor="cust-pin" className="text-xs font-medium">
+              PIN code
+            </label>
+            <input
+              id="cust-pin"
+              inputMode="numeric"
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+              value={pincode}
+              onChange={(e) => setPincode(e.target.value)}
+            />
           </div>
         </div>
         {error ? (

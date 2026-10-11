@@ -12,6 +12,7 @@ const gstRateSchema = z.union([
 
 export const invoiceLineSchema = z.object({
   productName: z.string(),
+  hsnCode: z.string().max(8).optional(),
   quantity: z.preprocess(
     (v) => coerceNumberInput(v),
     z.number().positive(),

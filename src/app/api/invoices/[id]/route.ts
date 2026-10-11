@@ -118,7 +118,10 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   const { breakdown, gstScheme, supplyType } = built;
-  const items = invoiceItemCreates(breakdown.items);
+  const items = invoiceItemCreates(breakdown.items).map((item, index) => ({
+    ...item,
+    hsnCode: parsed.data.lines[index]?.hsnCode?.trim() || null,
+  }));
   const totals = invoiceTotalsData(breakdown, gstScheme, supplyType);
 
   const updated = await prisma.$transaction(async (tx) => {

@@ -124,35 +124,49 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Overview of revenue and recent invoices."
+        description="Collected this month, still unpaid, and the latest invoices."
+        actions={
+          <Link href="/invoices/create" className={cn(buttonVariants({ size: "sm" }))}>
+            New invoice
+          </Link>
+        }
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
-            label: "Total Revenue (This Month)",
+            label: "Collected this month",
             value: inr.format(thisMonthRevenue),
-            hint: "Paid invoices in current calendar month",
+            hint: "Paid invoices issued this month",
+            href: "/invoices?tab=paid",
           },
           {
-            label: "Pending Payments",
+            label: "Still to collect",
             value: inr.format(pendingOutstanding),
-            hint: "Outstanding across pending invoices",
+            hint: "Not overdue yet",
+            href: "/invoices?tab=pending",
           },
           {
-            label: "Overdue Invoices",
+            label: "Overdue invoices",
             value: `${overdueCount}`,
-            hint: `Total amount ${inr.format(overdueTotal)}`,
+            hint: overdueCount > 0 ? inr.format(overdueTotal) : "None right now",
+            href: "/invoices?tab=overdue",
           },
-          { label: "Recent Invoices", value: `${recentRows.length}`, hint: "Latest 5 records" },
+          {
+            label: "Latest invoices",
+            value: `${recentRows.length}`,
+            hint: "Open the full list",
+            href: "/invoices",
+          },
         ].map((stat) => (
-          <div
+          <Link
             key={stat.label}
-            className="rounded-xl border border-border bg-card p-4 shadow-sm"
+            href={stat.href}
+            className="rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/40"
           >
             <p className="text-sm text-muted-foreground">{stat.label}</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums">{stat.value}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{stat.hint}</p>
-          </div>
+          </Link>
         ))}
       </div>
       <section className="mt-8 grid gap-8 lg:grid-cols-5">
@@ -174,9 +188,17 @@ export default async function DashboardPage() {
             </Link>
           </div>
           {recentRows.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">
-              No invoices yet. Create one to see it here.
-            </p>
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">
+                No invoices yet. Create one when you are ready to bill a customer.
+              </p>
+              <Link
+                href="/invoices/create"
+                className={cn(buttonVariants({ size: "sm" }), "mt-3 inline-flex")}
+              >
+                Create invoice
+              </Link>
+            </div>
           ) : (
             <ul className="mt-3 divide-y divide-border">
               {recentRows.map((inv) => {

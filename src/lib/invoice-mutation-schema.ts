@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const invoiceLineBodySchema = z.object({
   productName: z.string().min(1),
+  hsnCode: z.string().max(8).optional().nullable(),
   quantity: z.coerce.number().positive(),
   unitPrice: z.coerce.number().min(0),
   taxRate: z.union([

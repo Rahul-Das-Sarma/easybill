@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 
 const lineSchema = z.object({
   productName: z.string().min(1),
+  hsnCode: z.string().max(8).optional().nullable(),
   quantity: z.coerce.number().positive(),
   unitPrice: z.coerce.number().min(0),
   taxRate: z.union([
@@ -343,8 +344,9 @@ export async function POST(req: Request) {
           notes: body.notes?.trim() || null,
           customerNotes: body.customerNotes?.trim() || null,
           items: {
-            create: lineItems.map((row) => ({
+            create: lineItems.map((row, index) => ({
               productName: row.productName.trim(),
+              hsnCode: body.lines[index]?.hsnCode?.trim() || null,
               quantity: new Prisma.Decimal(row.quantity.toFixed(2)),
               unitPrice: new Prisma.Decimal(row.unitPrice.toFixed(2)),
               taxRate: new Prisma.Decimal(row.taxRate.toFixed(2)),

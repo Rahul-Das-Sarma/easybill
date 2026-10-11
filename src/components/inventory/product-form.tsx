@@ -30,6 +30,7 @@ const schema = z.object({
   name: z.string().min(1, "Name is required"),
   sku: z.string().optional(),
   barcode: z.string().optional(),
+  hsnCode: z.string().max(8).optional(),
   description: z.string().optional(),
   kind: z.enum(["finished_good", "raw_material"]),
   quantity: z.preprocess(
@@ -173,6 +174,7 @@ export function ProductForm({
       name: initial?.name ?? "",
       sku: initial?.sku ?? "",
       barcode: initial?.barcode ?? "",
+      hsnCode: initial?.hsnCode ?? "",
       description: initial?.description ?? "",
       kind: initial?.kind ?? "finished_good",
       quantity: initial?.quantity ?? 0,
@@ -205,6 +207,7 @@ export function ProductForm({
       name: values.name.trim(),
       sku: emptyToNull(values.sku),
       barcode: emptyToNull(values.barcode),
+      hsnCode: values.hsnCode?.trim() || null,
       description: values.description?.trim() || null,
       quantity: values.quantity,
       unitPrice: values.unitPrice,
@@ -360,7 +363,7 @@ export function ProductForm({
               ) : null}
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-3">
               <div className="space-y-2">
                 <FieldLabel
                   htmlFor="product-sku"
@@ -374,6 +377,22 @@ export function ProductForm({
                   autoComplete="off"
                   className={fieldClass}
                   {...form.register("sku")}
+                />
+              </div>
+              <div className="space-y-2">
+                <FieldLabel
+                  htmlFor="product-hsn"
+                  hint="Required for e-invoice."
+                >
+                  HSN
+                </FieldLabel>
+                <input
+                  id="product-hsn"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  className={fieldClass}
+                  {...form.register("hsnCode")}
                 />
               </div>
               <div className="space-y-2">

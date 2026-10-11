@@ -1,4 +1,5 @@
-// EasyBill — public.users mirrors Supabase Auth; id = auth.users.id
+// EasyBill — public.users is the app profile. id stays a UUID.
+// clerk_user_id links the row to Clerk (user ids are not UUIDs).
 // Database URL for CLI (migrate, etc.) lives in prisma.config.ts (Prisma ORM 7+).
 
 generator client {
@@ -56,6 +57,7 @@ enum PaymentMethod {
 
 model User {
   id                  String        @id @db.Uuid
+  clerkUserId         String?       @unique @map("clerk_user_id")
   name                String
   email               String        @unique
   companyName         String        @map("company_name")
@@ -65,7 +67,15 @@ model User {
   gstScheme           GstScheme     @default(regular) @map("gst_scheme")
   stateCode           String?       @map("state_code")
   address             String
+  city                String?
+  pincode             String?
   phone               String?
+  einvoiceUsername    String?       @map("einvoice_username")
+  einvoicePasswordEnc String?       @map("einvoice_password_enc")
+  einvoiceClientId    String?       @map("einvoice_client_id")
+  einvoiceSecretEnc   String?       @map("einvoice_secret_enc")
+  einvoicePublicKey   String?       @map("einvoice_public_key")
+  einvoiceEnv         String        @default("sandbox") @map("einvoice_env")
   plan                Plan          @default(free)
   businessType        BusinessType  @default(trading) @map("business_type")
   businessTypeChosen  Boolean       @default(false) @map("business_type_chosen")
@@ -88,6 +98,7 @@ model Product {
   name        String
   sku         String?
   barcode     String?
+  hsnCode     String?     @map("hsn_code")
   description String?
   kind        ProductKind @default(finished_good)
   quantity    Decimal     @db.Decimal(10, 2)
@@ -196,6 +207,7 @@ model Customer {
   email     String?
   phone     String?
   address   String?
+  pincode   String?
   gstNumber String?  @map("gst_number")
   stateCode String?  @map("state_code")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -229,6 +241,13 @@ model Invoice {
   notes          String?
   customerNotes  String?       @map("customer_notes")
   pdfUrl         String?       @map("pdf_url")
+  irn            String?
+  irnAckNo       String?       @map("irn_ack_no")
+  irnAckDate     DateTime?     @map("irn_ack_date") @db.Timestamptz(6)
+  irnSignedQr    String?       @map("irn_signed_qr")
+  ewayBillNo     String?       @map("eway_bill_no")
+  ewayBillDate   DateTime?     @map("eway_bill_date") @db.Timestamptz(6)
+  ewayValidTill  DateTime?     @map("eway_valid_till") @db.Timestamptz(6)
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -246,6 +265,7 @@ model InvoiceItem {
   id          String  @id @default(uuid()) @db.Uuid
   invoiceId   String  @map("invoice_id") @db.Uuid
   productName String  @map("product_name")
+  hsnCode     String? @map("hsn_code")
   quantity    Decimal @db.Decimal(10, 2)
   unitPrice   Decimal @map("unit_price") @db.Decimal(10, 2)
   taxRate     Decimal @map("tax_rate") @db.Decimal(5, 2)

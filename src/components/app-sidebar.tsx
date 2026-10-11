@@ -1,15 +1,16 @@
 "use client";
 
+import { useClerk, useUser } from "@clerk/nextjs";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
   FileText,
   FlaskConical,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Package,
@@ -25,32 +26,52 @@ type NavItem = {
   manufacturerOnly?: boolean;
 };
 
-const nav: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/invoices", label: "Invoices", icon: FileText },
-  { href: "/inventory", label: "Inventory", icon: Package },
+const groups: { label: string; items: NavItem[] }[] = [
   {
-    href: "/recipes",
-    label: "Recipes",
-    icon: FlaskConical,
-    manufacturerOnly: true,
+    label: "Overview",
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
   },
-  { href: "/customers", label: "Customers", icon: Users },
-  { href: "/settings", label: "Settings", icon: Settings },
+  {
+    label: "Sell",
+    items: [
+      { href: "/invoices", label: "Invoices", icon: FileText },
+      { href: "/customers", label: "Customers", icon: Users },
+    ],
+  },
+  {
+    label: "Stock",
+    items: [
+      { href: "/inventory", label: "Inventory", icon: Package },
+      {
+        href: "/recipes",
+        label: "Recipes",
+        icon: FlaskConical,
+        manufacturerOnly: true,
+      },
+    ],
+  },
+  {
+    label: "Tax",
+    items: [{ href: "/returns", label: "Returns", icon: Landmark }],
+  },
+  {
+    label: "Account",
+    items: [{ href: "/settings", label: "Settings", icon: Settings }],
+  },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({
+  open = false,
+  onNavigate,
+}: {
+  open?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [email, setEmail] = useState<string | undefined>();
+  const { signOut } = useClerk();
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
   const [isManufacturer, setIsManufacturer] = useState(false);
-
-  useEffect(() => {
-    const supabase = createClient();
-    void supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email ?? undefined);
-    });
-  }, []);
 
   useEffect(() => {
     function loadProfile() {
@@ -67,43 +88,58 @@ export function AppSidebar() {
     return () => window.removeEventListener("easybill:business-type", loadProfile);
   }, []);
 
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+  function handleSignOut() {
+    void signOut({ redirectUrl: "/login" });
   }
 
-  const items = nav.filter(
-    (item) => !item.manufacturerOnly || isManufacturer,
-  );
-
   return (
-    <aside className="flex h-dvh w-56 shrink-0 flex-col border-r border-border bg-card">
+    <aside
+      className={cn(
+        "flex h-dvh w-56 shrink-0 flex-col border-r border-border bg-card",
+        "fixed inset-y-0 left-0 z-40 transition-transform md:static md:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <Receipt className="size-5 text-brand" aria-hidden />
         <span className="font-semibold tracking-tight">EasyBill</span>
       </div>
-      <nav className="flex flex-col gap-0.5 p-2">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname === href || pathname.startsWith(`${href}/`);
+      <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-2">
+        {groups.map((group) => {
+          const items = group.items.filter(
+            (item) => !item.manufacturerOnly || isManufacturer,
+          );
+          if (items.length === 0) return null;
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden />
-              {label}
-            </Link>
+            <div key={group.label}>
+              <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {group.label}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {items.map(({ href, label, icon: Icon }) => {
+                  const active =
+                    href === "/dashboard"
+                      ? pathname === "/dashboard"
+                      : pathname === href || pathname.startsWith(`${href}/`);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={onNavigate}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" aria-hidden />
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
@@ -118,7 +154,7 @@ export function AppSidebar() {
           variant="ghost"
           size="sm"
           className="w-full justify-start gap-2 text-muted-foreground"
-          onClick={() => void signOut()}
+          onClick={handleSignOut}
         >
           <LogOut className="size-4" aria-hidden />
           Sign out

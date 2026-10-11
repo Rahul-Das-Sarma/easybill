@@ -1,11 +1,7 @@
 import { Prisma } from "@/generated/prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createDefaultUserRow,
-  createMockPrisma,
-  createSupabaseUser,
-} from "../../mocks/auth-store";
+import { createDefaultUserRow, createMockPrisma } from "../../mocks/auth-store";
 
 vi.mock("react", () => ({
   cache: <T extends (...args: unknown[]) => unknown>(fn: T) => fn,
@@ -17,125 +13,187 @@ vi.mock("@/lib/prisma", () => ({
   prisma: mockPrisma,
 }));
 
-const mockCreateClient = vi.fn();
-
-vi.mock("@/lib/supabase/server", () => ({
-  createClient: () => mockCreateClient(),
+const clerkMocks = vi.hoisted(() => ({
+  auth: vi.fn(),
+  currentUser: vi.fn(),
 }));
 
-function mockSession(user: ReturnType<typeof createSupabaseUser> | null) {
-  mockCreateClient.mockResolvedValue({
-    auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: user ? { user } : null },
-      }),
-    },
-  });
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: () => clerkMocks.auth(),
+  currentUser: () => clerkMocks.currentUser(),
+}));
+
+const APP_ID = "11111111-1111-4111-8111-111111111111";
+
+function clerkProfile(overrides?: {
+  fullName?: string | null;
+  primaryEmailAddressId?: string | null;
+  emailAddresses?: { id: string; emailAddress: string }[];
+}) {
+  return {
+    fullName:
+      overrides && "fullName" in overrides ? overrides.fullName : "Acme Owner",
+    primaryEmailAddressId:
+      overrides && "primaryEmailAddressId" in overrides
+        ? overrides.primaryEmailAddressId
+        : "email-1",
+    emailAddresses: overrides?.emailAddresses ?? [
+      { id: "email-1", emailAddress: "acme@example.com" },
+    ],
+  };
 }
 
 describe("auth-user", () => {
   beforeEach(() => {
     mockPrisma.reset();
-    mockCreateClient.mockReset();
+    clerkMocks.auth.mockReset();
+    clerkMocks.currentUser.mockReset();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(APP_ID);
   });
 
   describe("getSessionUser", () => {
-    it("returns the session user when authenticated", async () => {
-      const supabaseUser = createSupabaseUser({ id: "user-1" });
-      mockSession(supabaseUser);
+    it("returns null when there is no Clerk session", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: null });
 
       const { getSessionUser } = await import("@/lib/auth-user");
-      const result = await getSessionUser();
-
-      expect(result).toEqual(supabaseUser);
+      await expect(getSessionUser()).resolves.toBeNull();
     });
 
-    it("returns null when there is no session", async () => {
-      mockSession(null);
-
-      const { getSessionUser } = await import("@/lib/auth-user");
-      const result = await getSessionUser();
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("ensureAppUser", () => {
-    it("does nothing when the user row already exists", async () => {
-      mockPrisma.seed(createDefaultUserRow({ id: "user-1" }));
-      const supabaseUser = createSupabaseUser({ id: "user-1" });
-
-      const { ensureAppUser } = await import("@/lib/auth-user");
-      await ensureAppUser(supabaseUser);
-
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it("creates a user row from Supabase metadata when missing", async () => {
-      const supabaseUser = createSupabaseUser({
-        id: "user-2",
-        email: "acme@example.com",
-        user_metadata: {
-          full_name: "Acme Owner",
-          company_name: "Acme Traders",
-          address: "Mumbai",
-        },
-      });
-
-      const { ensureAppUser } = await import("@/lib/auth-user");
-      await ensureAppUser(supabaseUser);
-
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          id: "user-2",
-          email: "acme@example.com",
-          name: "Acme Owner",
-          companyName: "Acme Traders",
-          address: "Mumbai",
-          invoicePrefix: "INV",
+    it("returns the linked app user without calling Clerk profile", async () => {
+      mockPrisma.seed(
+        createDefaultUserRow({
+          id: "app-user-1",
+          clerkUserId: "user_clerk_1",
+          email: "linked@example.com",
         }),
+      );
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_1" });
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toEqual({
+        id: "app-user-1",
+        email: "linked@example.com",
+      });
+      expect(clerkMocks.currentUser).not.toHaveBeenCalled();
+    });
+
+    it("returns null when Clerk has a session but no profile", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_2" });
+      clerkMocks.currentUser.mockResolvedValue(null);
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toBeNull();
+    });
+
+    it("links an existing business by email", async () => {
+      mockPrisma.seed(
+        createDefaultUserRow({
+          id: "app-user-3",
+          email: "acme@example.com",
+          clerkUserId: null,
+        }),
+      );
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_3" });
+      clerkMocks.currentUser.mockResolvedValue(clerkProfile());
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toEqual({
+        id: "app-user-3",
+        email: "acme@example.com",
+      });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "app-user-3" },
+        data: { clerkUserId: "user_clerk_3" },
+        select: { id: true, email: true },
       });
     });
 
-    it("falls back to name and email-derived defaults in metadata", async () => {
-      const supabaseUser = createSupabaseUser({
-        id: "user-3",
+    it("creates an app user for a new Clerk account", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_4" });
+      clerkMocks.currentUser.mockResolvedValue(
+        clerkProfile({ fullName: "  ", emailAddresses: [{ id: "email-1", emailAddress: "shop@example.com" }] }),
+      );
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toEqual({
+        id: APP_ID,
         email: "shop@example.com",
-        user_metadata: { name: "Shop Owner" },
       });
-
-      const { ensureAppUser } = await import("@/lib/auth-user");
-      await ensureAppUser(supabaseUser);
-
       expect(mockPrisma.user.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          name: "Shop Owner",
+          id: APP_ID,
+          clerkUserId: "user_clerk_4",
+          email: "shop@example.com",
+          name: "shop",
           companyName: "My business",
           address: "—",
         }),
+        select: { id: true, email: true },
       });
     });
 
-    it("uses id-based email when Supabase email is missing", async () => {
-      const supabaseUser = createSupabaseUser({
-        id: "user-4",
-        email: undefined,
-        user_metadata: {},
-      });
-
-      const { ensureAppUser } = await import("@/lib/auth-user");
-      await ensureAppUser(supabaseUser);
-
-      expect(mockPrisma.user.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          email: "user-4@users.invalid",
-          name: "user-4",
+    it("uses the first email when the primary id does not match", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_5" });
+      clerkMocks.currentUser.mockResolvedValue(
+        clerkProfile({
+          fullName: null,
+          primaryEmailAddressId: "missing",
+          emailAddresses: [{ id: "other", emailAddress: "first@example.com" }],
         }),
+      );
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      const result = await getSessionUser();
+
+      expect(result?.email).toBe("first@example.com");
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ name: "first" }),
+        select: { id: true, email: true },
       });
     });
 
-    it("ignores duplicate create races (P2002)", async () => {
-      const supabaseUser = createSupabaseUser({ id: "user-5" });
+    it("uses a placeholder email when Clerk has none", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_6" });
+      clerkMocks.currentUser.mockResolvedValue(
+        clerkProfile({
+          fullName: "Named",
+          emailAddresses: [],
+          primaryEmailAddressId: null,
+        }),
+      );
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toMatchObject({
+        email: "user_clerk_6@users.invalid",
+      });
+    });
+
+    it("does not reuse an email already linked to another Clerk user", async () => {
+      mockPrisma.seed(
+        createDefaultUserRow({
+          id: "app-user-7",
+          email: "acme@example.com",
+          clerkUserId: "user_other",
+        }),
+      );
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_7" });
+      clerkMocks.currentUser.mockResolvedValue(clerkProfile({ fullName: "Acme Owner" }));
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toMatchObject({
+        email: "user_clerk_7@users.invalid",
+      });
+    });
+
+    it("returns the existing row when create hits a unique race", async () => {
+      mockPrisma.seed(
+        createDefaultUserRow({
+          id: "app-user-8",
+          clerkUserId: "user_clerk_8",
+          email: "race@example.com",
+        }),
+      );
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_8" });
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
       mockPrisma.user.create.mockRejectedValueOnce(
         new Prisma.PrismaClientKnownRequestError("Unique", {
@@ -143,74 +201,103 @@ describe("auth-user", () => {
           clientVersion: "test",
         }),
       );
+      clerkMocks.currentUser.mockResolvedValue(clerkProfile());
 
-      const { ensureAppUser } = await import("@/lib/auth-user");
-      await expect(ensureAppUser(supabaseUser)).resolves.toBeUndefined();
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toEqual({
+        id: "app-user-8",
+        email: "race@example.com",
+      });
     });
 
-    it("rethrows non-duplicate prisma errors", async () => {
-      const supabaseUser = createSupabaseUser({ id: "user-6" });
+    it("returns null when a unique race cannot be resolved", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_9" });
+      clerkMocks.currentUser.mockResolvedValue(clerkProfile());
+      mockPrisma.user.create.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError("Unique", {
+          code: "P2002",
+          clientVersion: "test",
+        }),
+      );
+
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).resolves.toBeNull();
+    });
+
+    it("rethrows unexpected database errors", async () => {
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_10" });
+      clerkMocks.currentUser.mockResolvedValue(clerkProfile());
       mockPrisma.user.create.mockRejectedValueOnce(new Error("db down"));
 
+      const { getSessionUser } = await import("@/lib/auth-user");
+      await expect(getSessionUser()).rejects.toThrow("db down");
+    });
+  });
+
+  describe("ensureAppUser", () => {
+    it("does nothing when the app user already exists", async () => {
+      mockPrisma.seed(createDefaultUserRow({ id: "app-user-11" }));
+
       const { ensureAppUser } = await import("@/lib/auth-user");
-      await expect(ensureAppUser(supabaseUser)).rejects.toThrow("db down");
+      await ensureAppUser({ id: "app-user-11", email: "user@example.com" });
+
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when the app user row is missing", async () => {
+      const { ensureAppUser } = await import("@/lib/auth-user");
+      await expect(
+        ensureAppUser({ id: "missing-user", email: "missing@example.com" }),
+      ).resolves.toBeUndefined();
     });
   });
 
   describe("getUserSettingsProfile", () => {
-    it("returns existing profile without creating", async () => {
+    it("returns the saved profile", async () => {
       mockPrisma.seed(
         createDefaultUserRow({
-          id: "user-7",
+          id: "app-user-12",
           companyName: "Existing Co",
           gstScheme: "composition",
         }),
       );
-      const supabaseUser = createSupabaseUser({ id: "user-7" });
 
       const { getUserSettingsProfile } = await import("@/lib/auth-user");
-      const profile = await getUserSettingsProfile(supabaseUser);
+      const profile = await getUserSettingsProfile({
+        id: "app-user-12",
+        email: "user@example.com",
+      });
 
       expect(profile).toMatchObject({
         companyName: "Existing Co",
         gstScheme: "composition",
       });
-      expect(mockPrisma.user.create).not.toHaveBeenCalled();
-    });
-
-    it("creates then fetches profile when user row is missing", async () => {
-      const supabaseUser = createSupabaseUser({
-        id: "user-8",
-        user_metadata: { company_name: "New Co" },
-      });
-
-      const { getUserSettingsProfile } = await import("@/lib/auth-user");
-      const profile = await getUserSettingsProfile(supabaseUser);
-
-      expect(mockPrisma.user.create).toHaveBeenCalled();
-      expect(profile).toMatchObject({ companyName: "New Co" });
     });
   });
 
   describe("requireAppUser", () => {
     it("returns null when unauthenticated", async () => {
-      mockSession(null);
+      clerkMocks.auth.mockResolvedValue({ userId: null });
 
       const { requireAppUser } = await import("@/lib/auth-user");
-      const result = await requireAppUser();
-
-      expect(result).toBeNull();
+      await expect(requireAppUser()).resolves.toBeNull();
     });
 
-    it("ensures app user and returns session user when authenticated", async () => {
-      const supabaseUser = createSupabaseUser({ id: "user-9" });
-      mockSession(supabaseUser);
+    it("returns the app user when authenticated", async () => {
+      mockPrisma.seed(
+        createDefaultUserRow({
+          id: "app-user-13",
+          clerkUserId: "user_clerk_13",
+          email: "ready@example.com",
+        }),
+      );
+      clerkMocks.auth.mockResolvedValue({ userId: "user_clerk_13" });
 
       const { requireAppUser } = await import("@/lib/auth-user");
-      const result = await requireAppUser();
-
-      expect(result).toEqual(supabaseUser);
-      expect(mockPrisma.user.create).toHaveBeenCalled();
+      await expect(requireAppUser()).resolves.toEqual({
+        id: "app-user-13",
+        email: "ready@example.com",
+      });
     });
   });
 });

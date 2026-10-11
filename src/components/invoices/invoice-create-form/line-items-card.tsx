@@ -82,6 +82,13 @@ export function InvoiceLineItemsCard({
                       autoComplete="off"
                       {...register(`lines.${index}.productName`)}
                     />
+                    <input
+                      className="mt-1 h-8 w-full min-w-[160px] rounded-lg border border-input bg-background px-2 text-xs"
+                      placeholder="HSN"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      {...register(`lines.${index}.hsnCode`)}
+                    />
                   </td>
                   <td className="py-2 pr-2 align-top">
                     <NumberInput

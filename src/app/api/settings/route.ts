@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { ensureAppUser, getSessionUser } from "@/lib/auth-user";
+import { sealSecret } from "@/lib/compliance/secrets";
 import { stateCodeFromGstin } from "@/lib/gst-india";
 import { prisma } from "@/lib/prisma";
 
@@ -18,6 +19,14 @@ const bodySchema = z.object({
   businessType: z.enum(["trading", "manufacturer"]).optional(),
   gstScheme: z.enum(["regular", "composition", "unregistered"]).optional(),
   stateCode: z.string().max(2).optional().nullable(),
+  city: z.string().max(80).optional().nullable(),
+  pincode: z.string().max(6).optional().nullable(),
+  einvoiceUsername: z.string().max(80).optional().nullable(),
+  einvoicePassword: z.string().max(200).optional(),
+  einvoiceClientId: z.string().max(120).optional().nullable(),
+  einvoiceClientSecret: z.string().max(200).optional(),
+  einvoicePublicKey: z.string().max(8000).optional().nullable(),
+  einvoiceEnv: z.enum(["sandbox", "production"]).optional(),
 });
 
 function settingsSelect() {
@@ -32,6 +41,11 @@ function settingsSelect() {
     businessTypeChosen: true,
     gstScheme: true,
     stateCode: true,
+    city: true,
+    pincode: true,
+    einvoiceUsername: true,
+    einvoiceClientId: true,
+    einvoiceEnv: true,
   } as const;
 }
 
@@ -98,6 +112,18 @@ export async function PATCH(req: Request) {
       gstNumber,
       invoicePrefix: body.invoicePrefix.trim().toUpperCase(),
       stateCode,
+      city: body.city?.trim() || null,
+      pincode: body.pincode?.trim() || null,
+      einvoiceUsername: body.einvoiceUsername?.trim() || null,
+      einvoiceClientId: body.einvoiceClientId?.trim() || null,
+      einvoicePublicKey: body.einvoicePublicKey?.trim() || null,
+      ...(body.einvoiceEnv ? { einvoiceEnv: body.einvoiceEnv } : {}),
+      ...(body.einvoicePassword
+        ? { einvoicePasswordEnc: sealSecret(body.einvoicePassword) }
+        : {}),
+      ...(body.einvoiceClientSecret
+        ? { einvoiceSecretEnc: sealSecret(body.einvoiceClientSecret) }
+        : {}),
       ...(body.gstScheme ? { gstScheme: body.gstScheme } : {}),
       ...(body.businessType
         ? {

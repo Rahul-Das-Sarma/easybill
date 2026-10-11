@@ -16,13 +16,27 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
+  const {
+    einvoicePasswordEnc,
+    einvoiceSecretEnc,
+    einvoicePublicKey,
+    ...safe
+  } = profile;
+
   return (
     <>
       <PageHeader
         title="Business settings"
         description="Business type, GST registration, and invoice profile. Changes apply to new invoices."
       />
-      <BusinessSettingsForm initial={profile} />
+      <BusinessSettingsForm
+        initial={{
+          ...safe,
+          einvoicePublicKey: einvoicePublicKey ?? "",
+          hasEinvoicePassword: Boolean(einvoicePasswordEnc),
+          hasEinvoiceSecret: Boolean(einvoiceSecretEnc),
+        }}
+      />
     </>
   );
 }

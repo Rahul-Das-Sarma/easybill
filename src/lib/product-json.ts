@@ -7,6 +7,7 @@ export function productToJson(p: {
   name: string;
   sku: string | null;
   barcode: string | null;
+  hsnCode?: string | null;
   description: string | null;
   kind?: "finished_good" | "raw_material";
   recipeId?: string | null;
@@ -24,6 +25,7 @@ export function productToJson(p: {
     name: formatProductNameForDisplay(p.name),
     sku: p.sku,
     barcode: p.barcode,
+    hsnCode: p.hsnCode ?? null,
     description: p.description,
     kind: p.kind ?? "finished_good",
     recipeId: p.recipeId ?? null,

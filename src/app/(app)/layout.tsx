@@ -1,11 +1,10 @@
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppShell } from "@/components/app-shell";
 import { SetupWizard } from "@/components/onboarding/setup-wizard";
 import { Providers } from "@/components/providers";
 
 /**
- * Auth for `/dashboard`, `/invoices`, etc. is enforced in `src/middleware.ts`
- * (redirects unauthenticated users). Avoiding another `getUser()` + cookies read
- * here speeds up every client navigation; the sidebar loads the email on the client.
+ * Auth for `/dashboard`, `/invoices`, etc. is enforced in `src/proxy.ts`
+ * with Clerk. The sidebar reads the signed-in email on the client.
  */
 export default function AppLayout({
   children,
@@ -14,14 +13,9 @@ export default function AppLayout({
 }) {
   return (
     <>
-      <div className="flex h-dvh overflow-hidden bg-background">
-        <AppSidebar />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-          <Providers>
-            <main className="flex-1 p-6 md:p-8">{children}</main>
-          </Providers>
-        </div>
-      </div>
+      <Providers>
+        <AppShell>{children}</AppShell>
+      </Providers>
       <SetupWizard />
     </>
   );

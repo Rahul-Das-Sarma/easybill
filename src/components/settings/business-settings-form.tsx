@@ -25,6 +25,14 @@ type SettingsData = {
   businessType: BusinessType;
   gstScheme: GstScheme;
   stateCode: string | null;
+  city: string | null;
+  pincode: string | null;
+  einvoiceUsername: string | null;
+  einvoiceClientId: string | null;
+  einvoiceEnv: string;
+  einvoicePublicKey: string;
+  hasEinvoicePassword: boolean;
+  hasEinvoiceSecret: boolean;
 };
 
 export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
@@ -38,6 +46,22 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
     initial.businessType,
   );
   const [gstScheme, setGstScheme] = useState<GstScheme>(initial.gstScheme);
+  const [city, setCity] = useState(initial.city ?? "");
+  const [pincode, setPincode] = useState(initial.pincode ?? "");
+  const [einvoiceUsername, setEinvoiceUsername] = useState(
+    initial.einvoiceUsername ?? "",
+  );
+  const [einvoicePassword, setEinvoicePassword] = useState("");
+  const [einvoiceClientId, setEinvoiceClientId] = useState(
+    initial.einvoiceClientId ?? "",
+  );
+  const [einvoiceClientSecret, setEinvoiceClientSecret] = useState("");
+  const [einvoicePublicKey, setEinvoicePublicKey] = useState(
+    initial.einvoicePublicKey,
+  );
+  const [einvoiceEnv, setEinvoiceEnv] = useState(
+    initial.einvoiceEnv === "production" ? "production" : "sandbox",
+  );
   const [stateCode, setStateCode] = useState(initial.stateCode ?? "");
   const [logoUrl, setLogoUrl] = useState(initial.companyLogoUrl ?? "");
   const [saving, setSaving] = useState(false);
@@ -67,6 +91,14 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
           businessType,
           gstScheme,
           stateCode: stateCode || null,
+          city,
+          pincode,
+          einvoiceUsername,
+          einvoiceClientId,
+          einvoicePublicKey,
+          einvoiceEnv,
+          ...(einvoicePassword ? { einvoicePassword } : {}),
+          ...(einvoiceClientSecret ? { einvoiceClientSecret } : {}),
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
@@ -257,6 +289,31 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
               className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus-visible:ring-2"
             />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="city" className="text-xs font-medium">
+                City
+              </label>
+              <input
+                id="city"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
+              />
+            </div>
+            <div>
+              <label htmlFor="pincode" className="text-xs font-medium">
+                PIN code
+              </label>
+              <input
+                id="pincode"
+                value={pincode}
+                inputMode="numeric"
+                onChange={(e) => setPincode(e.target.value)}
+                className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none ring-ring focus-visible:ring-2"
+              />
+            </div>
+          </div>
           <div>
             <label htmlFor="phone" className="text-xs font-medium">
               Phone
@@ -299,6 +356,91 @@ export function BusinessSettingsForm({ initial }: { initial: SettingsData }) {
             <Button type="button" variant="outline" size="sm" onClick={() => void uploadLogo()} disabled={uploading}>
               {uploading ? "Uploading..." : "Upload logo"}
             </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="text-sm font-medium">E-invoice portal</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Credentials from the NIC e-invoice API portal. The public key is the
+          PEM downloaded from that portal. Passwords are stored encrypted.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="einvoice-env" className="text-xs font-medium">
+              Environment
+            </label>
+            <select
+              id="einvoice-env"
+              value={einvoiceEnv}
+              onChange={(e) => setEinvoiceEnv(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+            >
+              <option value="sandbox">Sandbox</option>
+              <option value="production">Production</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="einvoice-user" className="text-xs font-medium">
+              API username
+            </label>
+            <input
+              id="einvoice-user"
+              value={einvoiceUsername}
+              onChange={(e) => setEinvoiceUsername(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="einvoice-password" className="text-xs font-medium">
+              API password
+            </label>
+            <input
+              id="einvoice-password"
+              type="password"
+              value={einvoicePassword}
+              placeholder={initial.hasEinvoicePassword ? "Saved" : ""}
+              onChange={(e) => setEinvoicePassword(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+            />
+          </div>
+          <div>
+            <label htmlFor="einvoice-client" className="text-xs font-medium">
+              Client id
+            </label>
+            <input
+              id="einvoice-client"
+              value={einvoiceClientId}
+              onChange={(e) => setEinvoiceClientId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="einvoice-secret" className="text-xs font-medium">
+              Client secret
+            </label>
+            <input
+              id="einvoice-secret"
+              type="password"
+              value={einvoiceClientSecret}
+              placeholder={initial.hasEinvoiceSecret ? "Saved" : ""}
+              onChange={(e) => setEinvoiceClientSecret(e.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="einvoice-key" className="text-xs font-medium">
+              Portal public key
+            </label>
+            <textarea
+              id="einvoice-key"
+              rows={4}
+              value={einvoicePublicKey}
+              onChange={(e) => setEinvoicePublicKey(e.target.value)}
+              placeholder="-----BEGIN PUBLIC KEY-----"
+              className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs"
+            />
           </div>
         </div>
       </section>

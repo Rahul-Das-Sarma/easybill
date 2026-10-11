@@ -255,6 +255,7 @@ export function InvoiceCreateForm({
       dueDate: values.dueDate,
       lines: values.lines.map((l) => ({
         productName: l.productName.trim(),
+        hsnCode: l.hsnCode?.trim() || null,
         quantity: l.quantity,
         unitPrice: l.unitPrice,
         taxRate: l.taxRate,
@@ -301,6 +302,7 @@ export function InvoiceCreateForm({
 
   const blankLine = {
     productName: "",
+    hsnCode: "",
     quantity: 1,
     unitPrice: 0,
     taxRate: 18 as const,

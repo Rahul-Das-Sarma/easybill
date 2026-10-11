@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/page-header";
@@ -51,9 +52,19 @@ const inr = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
+function tabFromQuery(value: string | null): TabId {
+  return tabs.some((tab) => tab.id === value) ? (value as TabId) : "all";
+}
+
 export function InvoicesList() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabId>("all");
+  const searchParams = useSearchParams();
+  const tabQuery = searchParams.get("tab");
+  const [tab, setTab] = useState<TabId>(() => tabFromQuery(tabQuery));
+
+  useEffect(() => {
+    setTab(tabFromQuery(tabQuery));
+  }, [tabQuery]);
   const [page, setPage] = useState(1);
   const [qInput, setQInput] = useState("");
   const [q, setQ] = useState("");

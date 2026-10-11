@@ -1,5 +1,11 @@
+import { Suspense } from "react";
+
 import { InvoicesList } from "@/components/invoices/invoices-list";
 
 export default function InvoicesPage() {
-  return <InvoicesList />;
+  return (
+    <Suspense>
+      <InvoicesList />
+    </Suspense>
+  );
 }

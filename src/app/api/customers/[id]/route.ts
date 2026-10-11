@@ -17,6 +17,7 @@ const patchSchema = z.object({
   address: z.string().max(500).optional().nullable(),
   gstNumber: z.string().max(40).optional().nullable(),
   stateCode: z.string().max(2).optional().nullable(),
+  pincode: z.string().max(6).optional().nullable(),
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -99,6 +100,9 @@ export async function PATCH(req: Request, { params }: Params) {
         : {}),
       ...(body.address !== undefined
         ? { address: body.address?.trim() || null }
+        : {}),
+      ...(body.pincode !== undefined
+        ? { pincode: body.pincode?.trim() || null }
         : {}),
       ...(body.gstNumber !== undefined ? { gstNumber } : {}),
       ...(body.stateCode !== undefined || body.gstNumber !== undefined
